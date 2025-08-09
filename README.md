@@ -33,10 +33,10 @@ cd oni_save_parser
 pip install -r requirements.txt
 
 # Run the basic example
-python example_usage.py
+python examples/example_usage.py
 
 # Run the complete hybrid workflow demo
-python example_hybrid_workflow.py
+python examples/example_hybrid_workflow.py
 ```
 
 ### Hybrid Workflow Usage
@@ -173,7 +173,7 @@ src/oni_ai_agents/
 
 tests/                        # Test files
 docs/                         # Documentation
-example_hybrid_workflow.py    # Complete workflow demo
+examples/example_hybrid_workflow.py    # Complete workflow demo
 ```
 
 ## 🧪 **Testing**

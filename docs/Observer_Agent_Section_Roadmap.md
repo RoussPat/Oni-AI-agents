@@ -37,14 +37,19 @@ This roadmap defines, for each ONI save-file section, the expected data sources,
   - Tests: Names/roles/vitals parsed from reference saves
 
 Status: Completed (v0.2)
-- Parser implemented:
-  - MinionIdentity (name/gender; improved `arrival_time` handling)
-  - MinionResume (`currentRole`, `AptitudeBySkillGroup`; scaffolding for `MasteryByRoleID`)
-  - MinionModifiers (extended vitals: decor, temperature, breath, bladder, immune, toxicity, radiation, morale)
-  - Klei.AI.Traits / Klei.AI.Effects (known-ID mapping; unknowns omitted)
-- Extraction (contract):
-  - `duplicants.list[*]` with `identity` (name, gender, arrival_time), `role`, `vitals` (extended), `aptitudes` (normalized), `traits` (list), `effects` (list), `position`
-- Tests: Enriched duplicants contract and extractor schema added; full suite passing
+- Done:
+  - Parser: MinionIdentity (name/gender; improved `arrival_time` best-effort), MinionResume (`currentRole`, `AptitudeBySkillGroup`), MinionModifiers (extended vitals), Traits/Effects (known-ID mapping; unknowns omitted)
+  - Extraction: `duplicants.list[*]` includes `identity` (name, gender, arrival_time), `role`, `vitals` (extended), `aptitudes` (normalized), `traits` ([] if none), `effects` ([] if none), `position`
+  - Tests: Enriched duplicants contract and extractor schema added; suite passing
+- Remaining (not in this iteration):
+  - MinionIdentity: definitive `arrival_time` via full template schema
+  - MinionResume: `MasteryByRoleID` exposure in extractor (list of mastered roles)
+  - Effects: broaden known-ID catalog; optionally show durations
+  - Skills summary: optional rollup combining aptitudes/mastery for recommendations
+- Insights:
+  - Hat-based role inference is a good fallback but normalize to canonical roles for consistency
+  - Generic string scans often introduce junk; prefer structured reads + curated ID sets
+  - Keep traits/effects as [] when unknown to simplify downstream consumers
 
 ## Schedules & Priorities
 - Expected data: Schedules and per-dup priorities from `game_data`/components

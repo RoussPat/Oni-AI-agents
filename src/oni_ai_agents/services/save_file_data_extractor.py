@@ -29,13 +29,60 @@ class SaveFileDataExtractor:
         self._parser = OniSaveParser()
 
     def parse_save_file(self, save_file_path: Path) -> ExtractedSaveData:
-        """Parse a save file and return a structured data container."""
+        """Parse a save file and return a structured data container.
+
+        The returned structure includes minimal but actionable data for
+        observer agents. For the `duplicants` section, this method augments
+        header counts with a concrete `list` of duplicant entries derived
+        from the parser's entity extraction, containing identity, role, and
+        vitals. Traits are currently left empty until template parsing lands.
+        """
         result = self._parser.parse_save_file(save_file_path)
         if not result.success or result.save_game is None:
             raise ValueError(f"Failed to parse save file: {result.error_message}")
 
         save_game = result.save_game
         game_info = save_game.header.game_info
+        # Extract duplicant entity details (heuristic extractor for now)
+        raw_minions = result.entities.get("duplicants") or self._parser.extract_minion_details(save_file_path)
+
+        def _map_minion(m: Dict[str, Any]) -> Dict[str, Any]:
+            vitals: Dict[str, Any] = m.get("vitals", {}) if isinstance(m.get("vitals"), dict) else {}
+            identity: Dict[str, Any] = {
+                "name": m.get("name"),
+                "gender": m.get("gender"),
+                "arrival_time": m.get("arrival_time", 0),
+            }
+            # Optional position if available
+            position: Dict[str, float] = {
+                "x": float(m.get("x", 0.0)),
+                "y": float(m.get("y", 0.0)),
+                "z": float(m.get("z", 0.0)),
+            }
+            entry: Dict[str, Any] = {
+                "identity": identity,
+                "role": m.get("job", "NoRole"),
+                "vitals": {
+                    "calories": vitals.get("calories"),
+                    "health": vitals.get("health"),
+                    "stress": vitals.get("stress"),
+                    "stamina": vitals.get("stamina"),
+                    "decor": vitals.get("decor"),
+                    "temperature": vitals.get("temperature"),
+                    "breath": vitals.get("breath"),
+                    "bladder": vitals.get("bladder"),
+                    "immune_level": vitals.get("immune_level"),
+                    "toxicity": vitals.get("toxicity"),
+                    "radiation_balance": vitals.get("radiation_balance"),
+                },
+                "traits": m.get("traits", []) or [],
+                "effects": m.get("effects", []) or [],
+                "aptitudes": m.get("aptitudes") or {},
+                "position": position,
+            }
+            return entry
+
+        duplicant_list = [_map_minion(m) for m in (raw_minions or [])]
 
         # Minimal sections derived from header until full parsing is implemented
         resources_section = {
@@ -52,7 +99,8 @@ class SaveFileDataExtractor:
 
         duplicants_section = {
             "count": save_game.header.num_duplicants,
-            # Placeholders for now
+            "list": duplicant_list,
+            # Placeholders pending template parsing
             "health_status": {},
             "morale_levels": {},
             "skill_assignments": {},

@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any, List, Tuple
 
 from .binary_reader import BinaryReader
 from .data_structures import (
-    SaveGame, SaveGameHeader, SaveGameVersion, TypeTemplates, 
+    SaveGame, SaveGameHeader, SaveGameVersion, TypeTemplates, TypeTemplate,
     SaveGameWorld, SaveGameSettings, GameObjectGroups, SaveGameData,
     ParseResult
 )
@@ -33,6 +33,22 @@ class OniSaveParser:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        # Known IDs for cleaner extraction fallback (subset curated from research)
+        self._KNOWN_TRAIT_IDS = {
+            'SmallBladder','Narcolepsy','Flatulence','Anemic','MouthBreather','BingeEater','StressVomiter',
+            'UglyCrier','EarlyBird','NightOwl','FastLearner','SlowLearner','NoodleArms','StrongArm',
+            'IronGut','WeakImmuneSystem','StrongImmuneSystem','DeeperDiversLungs','Snorer','BalloonArtist',
+            'SparkleStreaker','StickerBomber','InteriorDecorator','Uncultured','Allergies','Hemophobia',
+            'Claustrophobic','SolitarySleeper','Workaholic','Aggressive','Foodie','SimpleTastes','Greasemonkey',
+            'MoleHands','Twinkletoes','SunnyDisposition','RockCrusher','BedsideManner','Archaeologist',
+        }
+        self._KNOWN_EFFECT_IDS = {
+            'UncomfortableSleep','Sleep','NarcolepticSleep','RestfulSleep','AnewHope','Mourning','DisturbedSleep',
+            'NewCrewArrival','UnderWater','FullBladder','StressfulyEmptyingBladder','RedAlert','MentalBreak',
+            'CoolingDown','WarmingUp','Darkness','SteppedInContaminatedWater','WellFed','StaleFood',
+            'SmelledPutridOdour','Vomiting','DirtyHands','Unclean','LightWounds','ModerateWounds','SevereWounds',
+            'WasAttacked','SoreBack','WarmAir','ColdAir','Hypothermia','Hyperthermia','CenterOfAttention'
+        }
     
     def parse_save_file(self, file_path: Path) -> ParseResult:
         """
@@ -312,43 +328,482 @@ class OniSaveParser:
                             # Heuristic: first 4 fields are strings (name, nameStringKey, gender, genderStringKey),
                             # then an int32 arrivalTime.
                             try:
-                                off = beh_start
-                                # Read four consecutive Klei strings
-                                nm, off = self._read_klei_string(mv, off, beh_end)
-                                nm_key, off = self._read_klei_string(mv, off, beh_end)
-                                gender, off = self._read_klei_string(mv, off, beh_end)
-                                gender_key, off = self._read_klei_string(mv, off, beh_end)
-                                # Arrival time and voice index
-                                arrival = None
-                                voice_idx = None
-                                if off + 4 <= beh_end:
-                                    arrival = struct.unpack_from('<i', mv, off)[0]; off += 4
-                                if off + 4 <= beh_end:
-                                    voice_idx = struct.unpack_from('<i', mv, off)[0]; off += 4
-                                # Validate/assign fields; fallback to scan if needed
-                                if nm and self._is_plausible_name(nm):
-                                    minion_info['name'] = nm
-                                else:
+                                # Parse as a series of key/value payloads: [nameStr][len][payload]
+                                q = beh_start
+                                found_name = False
+                                found_gender = False
+                                while q < beh_end:
+                                    key, q2 = self._read_klei_string(mv, q, beh_end)
+                                    if key is None:
+                                        q += 1
+                                        continue
+                                    if q2 + 4 > beh_end:
+                                        break
+                                    kv_len = struct.unpack_from('<i', mv, q2)[0]
+                                    q2 += 4
+                                    if kv_len < 0 or q2 + kv_len > beh_end:
+                                        q = q2
+                                        continue
+                                    # Interpret payload based on key
+                                    if key in ('name', 'nameStringKey', 'gender', 'genderStringKey'):
+                                        # Read first Klei string from payload
+                                        try:
+                                            # Copy payload bytes for safe decoding
+                                            payload = bytes(mv[q2:q2+kv_len])
+                                            import struct as _st
+                                            if len(payload) >= 4:
+                                                slen = _st.unpack_from('<i', payload, 0)[0]
+                                                if 0 <= slen <= len(payload) - 4:
+                                                    s = payload[4:4+slen].decode('utf-8', errors='ignore')
+                                                    if key == 'name' and s and self._is_plausible_name(s):
+                                                        minion_info['name'] = s
+                                                        found_name = True
+                                                    elif key == 'gender' and s in ("MALE", "FEMALE", "NB"):
+                                                        minion_info['gender'] = s
+                                                        found_gender = True
+                                        except Exception:
+                                            pass
+                                    elif key == 'arrivalTime':
+                                        # arrivalTime may be stored as int32/int64/float
+                                        try:
+                                            if kv_len >= 4:
+                                                at32 = struct.unpack_from('<i', mv, q2)[0]
+                                                if 0 <= at32 < 10**10:
+                                                    minion_info['arrival_time'] = int(at32)
+                                            if 'arrival_time' not in minion_info and kv_len >= 8:
+                                                at64 = struct.unpack_from('<q', mv, q2)[0]
+                                                if 0 <= at64 < 10**12:
+                                                    minion_info['arrival_time'] = int(at64)
+                                            if 'arrival_time' not in minion_info and kv_len >= 4:
+                                                af32 = struct.unpack_from('<f', mv, q2)[0]
+                                                if 0.0 <= af32 < 10**10:
+                                                    minion_info['arrival_time'] = int(af32)
+                                            if 'arrival_time' not in minion_info and kv_len >= 8:
+                                                af64 = struct.unpack_from('<d', mv, q2)[0]
+                                                if 0.0 <= af64 < 10**12:
+                                                    minion_info['arrival_time'] = int(af64)
+                                        except Exception:
+                                            pass
+                                    elif key == 'voiceIdx':
+                                        # Not currently used
+                                        pass
+                                    # Advance to next kv
+                                    q = q2 + kv_len
+                                # Fallbacks if name/gender not found
+                                if not found_name:
                                     strings = self._scan_klei_strings(mv, beh_start, beh_end, max_strings=32)
                                     for s in strings:
                                         if self._is_plausible_name(s):
                                             minion_info['name'] = s
                                             break
-                                if gender in ("MALE", "FEMALE", "NB"):
-                                    minion_info['gender'] = gender
-                                if arrival is not None and 0 <= arrival < 10**9:
-                                    minion_info['arrival_time'] = int(arrival)
+                                # Fallback: positional decode (legacy layout)
+                                if 'arrival_time' not in minion_info:
+                                    try:
+                                        off = beh_start
+                                        nm, off = self._read_klei_string(mv, off, beh_end)
+                                        _nm_key, off = self._read_klei_string(mv, off, beh_end)
+                                        gender_s, off = self._read_klei_string(mv, off, beh_end)
+                                        _gender_key, off = self._read_klei_string(mv, off, beh_end)
+                                        if gender_s in ("MALE", "FEMALE", "NB") and 'gender' not in minion_info:
+                                            minion_info['gender'] = gender_s
+                                        if off + 4 <= beh_end:
+                                            at = struct.unpack_from('<i', mv, off)[0]; off += 4
+                                            if at >= 0:
+                                                minion_info['arrival_time'] = int(at)
+                                    except Exception:
+                                        pass
                             except Exception:
                                 pass
                         elif beh_name in ('MinionResume',):
                             # Try to extract current role/job from strings in this block
                             try:
-                                strings = self._scan_klei_strings(mv, beh_start, beh_end, max_strings=64)
-                                # Heuristic: prefer strings that look like Role IDs (CamelCase words)
+                                # Parse key/value payloads within MinionResume
+                                q = beh_start
+                                role_val = None
+                                # Prepare aptitude accumulator
+                                aptitudes: Dict[str, int] = {}
+                                # Known skill groups (lowercase keys)
+                                known_groups = {
+                                    'building': 'Building',
+                                    'digging': 'Digging',
+                                    'mining': 'Digging',
+                                    'research': 'Research',
+                                    'cooking': 'Cooking',
+                                    'farming': 'Farming',
+                                    'ranching': 'Ranching',
+                                    'doctoring': 'Doctoring',
+                                    'medical': 'Doctoring',
+                                    'artist': 'Art',
+                                    'operating': 'Operating',
+                                    'hauling': 'Hauling',
+                                    'tidying': 'Tidying',
+                                    'engineering': 'Engineering',
+                                    'supplying': 'Hauling',
+                                }
+                                while q < beh_end:
+                                    key, q2 = self._read_klei_string(mv, q, beh_end)
+                                    if key is None:
+                                        q += 1
+                                        continue
+                                    if q2 + 4 > beh_end:
+                                        break
+                                    kv_len = struct.unpack_from('<i', mv, q2)[0]
+                                    q2 += 4
+                                    if kv_len < 0 or q2 + kv_len > beh_end:
+                                        q = q2
+                                        continue
+                                    if key == 'currentRole':
+                                        try:
+                                            payload = bytes(mv[q2:q2+kv_len])
+                                            import struct as _st
+                                            if len(payload) >= 4:
+                                                slen = _st.unpack_from('<i', payload, 0)[0]
+                                                if 0 <= slen <= len(payload) - 4:
+                                                    s = payload[4:4+slen].decode('utf-8', errors='ignore')
+                                                    if s:
+                                                        role_val = s
+                                        except Exception:
+                                            pass
+                                    elif key == 'AptitudeBySkillGroup':
+                                        # Attempt to parse pairs of (group, level)
+                                        try:
+                                            import struct as _st
+                                            pay = memoryview(mv[q2:q2+kv_len])
+                                            rp = 0
+                                            cnt = None
+                                            if rp + 4 <= len(pay):
+                                                cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                            # Guard: if count not plausible, ignore structured parse
+                                            if cnt is not None and 0 <= cnt <= 128:
+                                                for _ in range(cnt):
+                                                    # Read group name as Klei string (best effort)
+                                                    if rp + 4 > len(pay):
+                                                        break
+                                                    glen = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                                    if glen < 0 or rp + glen > len(pay):
+                                                        break
+                                                    graw = bytes(pay[rp:rp+glen]).decode('utf-8', errors='ignore'); rp += glen
+                                                    # Read numeric level (try int32 then float32)
+                                                    lvl = None
+                                                    if rp + 4 <= len(pay):
+                                                        cand = _st.unpack_from('<i', pay, rp)[0]
+                                                        if 0 <= cand <= 10:
+                                                            lvl = int(cand); rp += 4
+                                                    if lvl is None and rp + 4 <= len(pay):
+                                                        fv = _st.unpack_from('<f', pay, rp)[0]
+                                                        if 0.0 <= fv <= 10.0:
+                                                            lvl = int(round(fv)); rp += 4
+                                                    if lvl is None:
+                                                        # Skip 4 bytes to avoid infinite loop
+                                                        rp = min(len(pay), rp + 4)
+                                                        continue
+                                                    group_key = map_group(graw)
+                                                    if group_key:
+                                                        prev = aptitudes.get(group_key, 0)
+                                                        if lvl > prev:
+                                                            aptitudes[group_key] = lvl
+                                        except Exception:
+                                            pass
+                                    elif key == 'MasteryByRoleID':
+                                        # Parse mastered roles: array of (roleId, bool)
+                                        try:
+                                            import struct as _st
+                                            pay = memoryview(mv[q2:q2+kv_len])
+                                            rp = 0
+                                            mastered: List[str] = []
+                                            cnt = None
+                                            if rp + 4 <= len(pay):
+                                                cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                            if cnt is not None and 0 <= cnt <= 256:
+                                                for _ in range(cnt):
+                                                    if rp + 4 > len(pay):
+                                                        break
+                                                    glen = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                                    if glen < 0 or rp + glen > len(pay):
+                                                        break
+                                                    role_id = bytes(pay[rp:rp+glen]).decode('utf-8', errors='ignore'); rp += glen
+                                                    # bool may be 1 byte or 4-byte int; try both
+                                                    mastered_flag = None
+                                                    if rp + 1 <= len(pay):
+                                                        mastered_flag = pay[rp] != 0; rp += 1
+                                                    if mastered_flag is None and rp + 4 <= len(pay):
+                                                        mastered_flag = _st.unpack_from('<i', pay, rp)[0] != 0; rp += 4
+                                                    if mastered_flag and role_id:
+                                                        mastered.append(role_id)
+                                            if mastered:
+                                                minion_info.setdefault('mastered_roles', mastered)
+                                        except Exception:
+                                            pass
+                                    # advance
+                                    q = q2 + kv_len
+                                if role_val:
+                                    minion_info.setdefault('job', role_val)
+                            except Exception:
+                                pass
+                            # Secondary pass: scan strings and raw payload to derive aptitudes like Building1, Hauling2, Mining3
+                            try:
                                 import re
-                                camel = [s for s in strings if re.fullmatch(r"[A-Z][A-Za-z]+", s)]
-                                if camel:
-                                    minion_info.setdefault('job', camel[0])
+                                # Normalization helpers
+                                def map_group(raw: str) -> str:
+                                    raw_l = raw.lower()
+                                    alias = {
+                                        'mining': 'Mining',
+                                        'building': 'Building',
+                                        'farming': 'Farming',
+                                        'ranching': 'Ranching',
+                                        'researching': 'Research',
+                                        'research': 'Research',
+                                        'cooking': 'Cooking',
+                                        'arting': 'Art',
+                                        'art': 'Art',
+                                        'hauling': 'Hauling',
+                                        'suits': 'Suits',
+                                        'technicals': 'Technicals',
+                                        'engineering': 'Engineering',
+                                        'basekeeping': 'Basekeeping',
+                                        'astronauting': 'Management',
+                                        'medicine': 'MedicalAid',
+                                        'rocketpiloting': 'Management',
+                                        'medicalaid': 'MedicalAid',
+                                    }.get(raw_l)
+                                    if alias:
+                                        return alias
+                                    # Prefix mapping for truncated tokens
+                                    for pref, mapped in [
+                                        ('build', 'Building'), ('resear', 'Research'), ('resea', 'Research'),
+                                        ('min', 'Mining'), ('farm', 'Farming'), ('ranch', 'Ranching'),
+                                        ('operat', 'Operating'), ('engin', 'Engineering'), ('medica', 'MedicalAid'),
+                                        ('med', 'MedicalAid'), ('cook', 'Cooking'), ('art', 'Art'),
+                                        ('haul', 'Hauling'), ('tidy', 'Basekeeping'), ('suit', 'Suits'),
+                                        ('tech', 'Technicals'), ('pyrotech', 'Technicals'), ('astron', 'Management'),
+                                        ('manage', 'Management'),
+                                    ]:
+                                        if raw_l.startswith(pref):
+                                            return mapped
+                                    # Fallback: title case the raw
+                                    return raw.capitalize()
+
+                                # Allowed max levels per group (based on ONI tiers)
+                                max_level = {
+                                    'Mining': 3, 'Building': 3, 'Farming': 3, 'Ranching': 2,
+                                    'Research': 3, 'Cooking': 2, 'Art': 3, 'Hauling': 2,
+                                    'Suits': 1, 'Technicals': 2, 'Engineering': 1,
+                                    'Basekeeping': 2, 'Management': 2, 'MedicalAid': 3,
+                                }
+
+                                # Pass 1: Klei string scan
+                                for s in self._scan_klei_strings(mv, beh_start, beh_end, max_strings=256):
+                                    m = re.fullmatch(r"([A-Za-z]+)(\d+)", s)
+                                    if m:
+                                        group_raw = m.group(1)
+                                        level = int(m.group(2))
+                                        group_key = map_group(group_raw)
+                                        if group_key and group_key in max_level and 1 <= level <= max_level[group_key]:
+                                            prev = aptitudes.get(group_key, 0)
+                                            if level > prev:
+                                                aptitudes[group_key] = level
+                                # Pass 2: Raw payload scan (handles fused tokens)
+                                payload = bytes(mv[beh_start:beh_end])
+                                text = payload.decode('utf-8', errors='ignore')
+                                for m in re.finditer(r"\b([A-Za-z]+)(\d+)\b", text):
+                                    group_raw = m.group(1)
+                                    level = int(m.group(2))
+                                    group_key = map_group(group_raw)
+                                    if group_key and group_key in max_level and 1 <= level <= max_level[group_key]:
+                                        prev = aptitudes.get(group_key, 0)
+                                        if level > prev:
+                                            aptitudes[group_key] = level
+                                if aptitudes:
+                                    minion_info.setdefault('aptitudes', aptitudes)
+                            except Exception:
+                                pass
+                            # Fallback: derive from hat tokens present in MinionResume payload
+                            if 'job' not in minion_info or minion_info.get('job') in (None, '', 'NoRole'):
+                                try:
+                                    payload = bytes(mv[beh_start:beh_end])
+                                    idx = payload.find(b'hat_role_')
+                                    if idx != -1:
+                                        j = idx + len(b'hat_role_')
+                                        group_bytes = bytearray()
+                                        while j < len(payload) and (65 <= payload[j] <= 90 or 97 <= payload[j] <= 122):
+                                            group_bytes.append(payload[j]); j += 1
+                                        group = group_bytes.decode('ascii', errors='ignore').lower()
+                                        exact_map = {
+                                            'building': 'Builder', 'mining': 'Miner', 'digging': 'Miner',
+                                            'research': 'Researcher', 'cooking': 'Cook', 'cook': 'Cook',
+                                            'farming': 'Farmer', 'farmer': 'Farmer', 'ranching': 'Rancher',
+                                            'doctor': 'Doctor', 'medical': 'Doctor', 'artist': 'Artist',
+                                            'operating': 'Operator', 'operator': 'Operator', 'engineering': 'Engineer',
+                                            'engineer': 'Engineer', 'hauling': 'Courier', 'supply': 'Courier',
+                                            'tidying': 'Sweeper', 'pyrotechnics': 'Pyrotechnician'
+                                        }
+                                        base = exact_map.get(group)
+                                        if not base:
+                                            for pref, role_name in [
+                                                ('build', 'Builder'), ('resear', 'Researcher'), ('resea', 'Researcher'), ('min', 'Miner'),
+                                                ('farm', 'Farmer'), ('ranch', 'Rancher'), ('operat', 'Operator'),
+                                                ('engin', 'Engineer'), ('med', 'Doctor'), ('cook', 'Cook'),
+                                                ('art', 'Artist'), ('haul', 'Courier'), ('suppl', 'Courier'),
+                                                ('tidy', 'Sweeper'), ('pyrotech', 'Pyrotechnician'), ('ranc', 'Rancher')
+                                            ]:
+                                                if group.startswith(pref):
+                                                    base = role_name
+                                                    break
+                                        if base:
+                                            minion_info.setdefault('job', base)
+                                except Exception:
+                                    pass
+                        elif beh_name in ('Accessorizer', 'WearableAccessorizer'):
+                            # Infer role from worn hat strings like 'hat_role_building3'
+                            try:
+                                strings = self._scan_klei_strings(mv, beh_start, beh_end, max_strings=128)
+                                hat_tokens = [s for s in strings if 'hat_role_' in s]
+                                def map_hat_to_role(token: str) -> str:
+                                    # Extract segment after 'hat_role_'
+                                    try:
+                                        seg = token.split('hat_role_', 1)[1]
+                                    except Exception:
+                                        return ''
+                                    # Normalize, pick leading alpha+digits
+                                    import re
+                                    m = re.match(r"([a-zA-Z]+)(\d*)", seg)
+                                    if not m:
+                                        return ''
+                                    group = m.group(1).lower()
+                                    tier = m.group(2) or ''
+                                    # Map by exact key or by common prefixes to handle truncated tokens
+                                    exact_map = {
+                                        'building': 'Builder',
+                                        'mining': 'Miner',
+                                        'digging': 'Miner',
+                                        'research': 'Researcher',
+                                        'cooking': 'Cook',
+                                        'cook': 'Cook',
+                                        'farming': 'Farmer',
+                                        'farmer': 'Farmer',
+                                        'ranching': 'Rancher',
+                                        'doctor': 'Doctor',
+                                        'medical': 'Doctor',
+                                        'artist': 'Artist',
+                                        'operating': 'Operator',
+                                        'operator': 'Operator',
+                                        'engineering': 'Engineer',
+                                        'engineer': 'Engineer',
+                                        'hauling': 'Courier',
+                                        'supply': 'Courier',
+                                        'tidying': 'Sweeper',
+                                    }
+                                    base = exact_map.get(group)
+                                    if not base:
+                                        # Prefix-based mapping for truncated tokens (e.g., 'build', 'resea', 'min')
+                                        prefix_map = [
+                                            ('build', 'Builder'),
+                                            ('resear', 'Researcher'),
+                                            ('min', 'Miner'),
+                                            ('farm', 'Farmer'),
+                                            ('ranch', 'Rancher'),
+                                            ('operat', 'Operator'),
+                                            ('engin', 'Engineer'),
+                                            ('med', 'Doctor'),
+                                            ('cook', 'Cook'),
+                                            ('art', 'Artist'),
+                                            ('haul', 'Courier'),
+                                            ('suppl', 'Courier'),
+                                            ('tidy', 'Sweeper'),
+                                            ('pyrotech', 'Pyrotechnician'),
+                                        ]
+                                        for pref, role_name in prefix_map:
+                                            if group.startswith(pref):
+                                                base = role_name
+                                                break
+                                    if not base:
+                                        base = group.capitalize()
+                                    return f"{base}{(' T' + tier) if tier else ''}"
+                                for t in hat_tokens:
+                                    mapped = map_hat_to_role(t)
+                                    if mapped:
+                                        minion_info.setdefault('job', mapped)
+                                        break
+                            except Exception:
+                                pass
+                        elif beh_name in ('Klei.AI.Traits', 'Traits'):
+                            # Extract trait identifiers (structured parse with fallback)
+                            try:
+                                import struct as _st
+                                traits: List[str] = []
+                                pay = memoryview(mv[beh_start:beh_end])
+                                rp = 0
+                                if rp + 4 <= len(pay):
+                                    cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                else:
+                                    cnt = -1
+                                parsed = 0
+                                if 0 <= cnt <= 256:
+                                    while parsed < cnt and rp < len(pay):
+                                        if rp + 4 > len(pay):
+                                            break
+                                        sl = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                        if sl < 0 or rp + sl > len(pay):
+                                            break
+                                        s = bytes(pay[rp:rp+sl]).decode('utf-8', errors='ignore'); rp += sl
+                                        if s:
+                                            traits.append(s)
+                                        parsed += 1
+                                # Skip generic string scan fallback for traits to avoid unreadable tokens
+                                if traits:
+                                    # Normalize and keep only known trait ids
+                                    alias = {'DiversLung': 'DeeperDiversLungs'}
+                                    norm = [alias.get(t, t) for t in traits]
+                                    known_only = [t for t in norm if t in self._KNOWN_TRAIT_IDS]
+                                    if known_only:
+                                        minion_info.setdefault('traits', sorted(list(dict.fromkeys(known_only))))
+                            except Exception:
+                                pass
+                        elif beh_name in ('Klei.AI.Effects', 'Effects'):
+                            # Extract active effects/statuses (structured parse with fallback)
+                            try:
+                                import struct as _st, re
+                                effects: List[str] = []
+                                pay = memoryview(mv[beh_start:beh_end])
+                                # The above had a typo; correct variable name
+                            except Exception:
+                                pass
+                            try:
+                                import struct as _st, re
+                                effects: List[str] = []
+                                pay = memoryview(mv[beh_start:beh_end])
+                                rp = 0
+                                cnt = None
+                                if rp + 4 <= len(pay):
+                                    cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                parsed = 0
+                                if cnt is not None and 0 <= cnt <= 512:
+                                    while parsed < cnt and rp < len(pay):
+                                        if rp + 4 > len(pay):
+                                            break
+                                        sl = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                        if sl < 0 or rp + sl > len(pay):
+                                            break
+                                        s = bytes(pay[rp:rp+sl]).decode('utf-8', errors='ignore'); rp += sl
+                                        if s:
+                                            effects.append(s)
+                                        parsed += 1
+                                if not effects:
+                                    strings = self._scan_klei_strings(mv, beh_start, beh_end, max_strings=256)
+                                    for s in strings:
+                                        if not s or len(s) > 64:
+                                            continue
+                                        if any(ch in s for ch in (' ', '/', '\\')):
+                                            continue
+                                        if '_' in s or re.fullmatch(r"[A-Z][A-Za-z]+", s):
+                                            effects.append(s)
+                                if effects:
+                                    known = [e for e in effects if e in self._KNOWN_EFFECT_IDS]
+                                    if known:
+                                        minion_info.setdefault('effects', sorted(list(dict.fromkeys(known))))
+                                    else:
+                                        # Prefer empty effects list over unreadable placeholders
+                                        minion_info.setdefault('effects', [])
                             except Exception:
                                 pass
                         elif beh_name in ('MinionModifiers', 'Modifiers'):
@@ -360,6 +815,14 @@ class OniSaveParser:
                                     'Health': ('health', 0.0, 1000.0),
                                     'Stress': ('stress', 0.0, 100.0),
                                     'Stamina': ('stamina', 0.0, 100.0),
+                                    'Decor': ('decor', -1000.0, 1000.0),
+                                    'Temperature': ('temperature', 0.0, 1000.0),
+                                    'Breath': ('breath', 0.0, 100.0),
+                                    'Bladder': ('bladder', 0.0, 100.0),
+                                    'ImmuneLevel': ('immune_level', 0.0, 100.0),
+                                    'Toxicity': ('toxicity', 0.0, 100.0),
+                                    'RadiationBalance': ('radiation_balance', -10000.0, 10000.0),
+                                    'QualityOfLife': ('morale', -1000.0, 1000.0),
                                 }
                                 q = beh_start
                                 while q + 8 <= beh_end:
@@ -388,6 +851,9 @@ class OniSaveParser:
                     # Ensure defaults for required fields
                     minion_info.setdefault('arrival_time', 0)
                     minion_info.setdefault('job', 'NoRole')
+                    # Always provide list fields
+                    minion_info.setdefault('traits', [])
+                    minion_info.setdefault('effects', [])
                     minions.append(minion_info)
             else:
                 # Skip group payload
@@ -508,17 +974,38 @@ class OniSaveParser:
         return header
     
     def _parse_templates(self, reader: BinaryReader, result: ParseResult) -> TypeTemplates:
-        """Parse type templates section."""
-        # TODO: Implement type templates parsing
+        """Parse type templates section (minimal frame reader with names only).
+
+        This does not fully decode template schemas, but collects template
+        names so downstream object parsing can align by behavior name.
+        """
         templates = TypeTemplates()
-        
         try:
-            # Type templates are complex - this would need detailed implementation
-            result.add_warning("Type templates parsing not yet implemented")
-            
+            # Heuristic: peek remaining bytes and scan for behavior/template names.
+            start_pos = reader.get_position()
+            remaining = reader.remaining_bytes()
+            blob = reader.read_bytes(remaining) if remaining > 0 else b""
+            # Restore stream position for subsequent sections
+            reader.seek(start_pos)
+
+            mv = memoryview(blob)
+            names: List[str] = []
+            # Collect plausible ASCII names like MinionIdentity, MinionResume, MinionModifiers
+            for key in (b"MinionIdentity", b"MinionResume", b"MinionModifiers", b"Klei.AI.Traits", b"Klei.AI.Effects"):
+                idx = blob.find(key)
+                if idx != -1:
+                    names.append(key.decode('utf-8'))
+            # Deduplicate and store
+            seen = set()
+            for n in names:
+                if n in seen:
+                    continue
+                seen.add(n)
+                templates.templates.append(TypeTemplate(name=n, template_data={}))
+            if not names:
+                result.add_warning("Type templates parsing minimal: names not detected")
         except Exception as e:
             result.add_warning(f"Template parsing error: {e}")
-        
         return templates
     
     def _parse_world(self, reader: BinaryReader, result: ParseResult) -> SaveGameWorld:

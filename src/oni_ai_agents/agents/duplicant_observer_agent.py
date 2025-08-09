@@ -107,17 +107,48 @@ class DuplicantObserverAgent(Agent):
         """
     
     def _perform_basic_analysis(self, duplicant_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Perform basic statistical analysis of duplicant data."""
-        # TODO: Implement actual analysis logic
+        """Perform basic statistical analysis of duplicant data.
+
+        This consumes the v0.1 duplicant contract with `count` and optional
+        `list` entries including `identity`, `role`, and `vitals`.
+        """
+        entries = duplicant_data.get("list") or []
+        total = int(duplicant_data.get("count", len(entries) or 0))
+        health_vals = []
+        stress_vals = []
+        morale_vals = []  # Placeholder until morale available
+        unassigned = []
+        critical_health = []
+        high_stress = []
+
+        for e in entries:
+            vit = (e.get("vitals") or {})
+            h = vit.get("health")
+            s = vit.get("stress")
+            if isinstance(h, (int, float)):
+                health_vals.append(float(h))
+                if h <= 25:
+                    critical_health.append(e.get("identity", {}).get("name"))
+            if isinstance(s, (int, float)):
+                stress_vals.append(float(s))
+                if s >= 80:
+                    high_stress.append(e.get("identity", {}).get("name"))
+            role = e.get("role")
+            if role in (None, "", "NoRole"):
+                unassigned.append(e.get("identity", {}).get("name"))
+
+        def avg(values):
+            return (sum(values) / len(values)) if values else 0.0
+
         return {
-            "total_duplicants": duplicant_data.get("count", 0),
-            "average_health": 0.0,    # Calculate from health_status
-            "average_morale": 0.0,    # Calculate from morale_levels
-            "average_stress": 0.0,    # Calculate from stress_levels
-            "skill_distribution": {},  # Analyze skill_assignments
-            "critical_health": [],    # List of duplicants with health issues
-            "high_stress": [],        # List of duplicants with high stress
-            "unassigned_duplicants": []  # List of duplicants without jobs
+            "total_duplicants": total,
+            "average_health": avg(health_vals),
+            "average_morale": avg(morale_vals),
+            "average_stress": avg(stress_vals),
+            "skill_distribution": {},
+            "critical_health": [n for n in critical_health if n],
+            "high_stress": [n for n in high_stress if n],
+            "unassigned_duplicants": [n for n in unassigned if n],
         }
     
     def _generate_alerts(self, duplicant_data: Dict[str, Any]) -> list:

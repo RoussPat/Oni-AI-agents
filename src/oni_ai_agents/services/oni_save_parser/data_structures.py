@@ -39,6 +39,12 @@ class TypeTemplates:
     """Collection of all type templates in save file."""
     templates: List[TypeTemplate] = field(default_factory=list)
 
+    def get(self, name: str) -> Optional[TypeTemplate]:
+        for t in self.templates:
+            if t.name == name:
+                return t
+        return None
+
 
 @dataclass
 class GameObject:

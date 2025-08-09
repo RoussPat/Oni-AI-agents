@@ -36,6 +36,16 @@ This roadmap defines, for each ONI save-file section, the expected data sources,
   - Agent: Alerts (starving, stressed), suggestions (role changes)
   - Tests: Names/roles/vitals parsed from reference saves
 
+Status: Completed (v0.2)
+- Parser implemented:
+  - MinionIdentity (name/gender; improved `arrival_time` handling)
+  - MinionResume (`currentRole`, `AptitudeBySkillGroup`; scaffolding for `MasteryByRoleID`)
+  - MinionModifiers (extended vitals: decor, temperature, breath, bladder, immune, toxicity, radiation, morale)
+  - Klei.AI.Traits / Klei.AI.Effects (known-ID mapping; unknowns omitted)
+- Extraction (contract):
+  - `duplicants.list[*]` with `identity` (name, gender, arrival_time), `role`, `vitals` (extended), `aptitudes` (normalized), `traits` (list), `effects` (list), `position`
+- Tests: Enriched duplicants contract and extractor schema added; full suite passing
+
 ## Schedules & Priorities
 - Expected data: Schedules and per-dup priorities from `game_data`/components
 - Agent goal: Optimize schedules and priorities to reduce stress and idle time

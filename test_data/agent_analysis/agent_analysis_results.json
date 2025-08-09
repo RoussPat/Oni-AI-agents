@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-09T11:40:03.848782",
+  "timestamp": "2025-08-09T14:11:04.737562",
   "save_file": "test_data/clone_laboratory.sav",
   "save_summary": {
     "version": "7.36",
@@ -36,14 +36,468 @@
       "agent_id": "resource_test",
       "section": "resources",
       "error": "'<' not supported between instances of 'NoneType' and 'int'",
-      "timestamp": "2025-08-09T11:40:03.526426"
+      "timestamp": "2025-08-09T14:11:04.413039"
     },
     "duplicant": {
       "agent_id": "duplicant_test",
       "section": "duplicants",
-      "timestamp": "2025-08-09T11:40:03.679956",
+      "timestamp": "2025-08-09T14:11:04.577065",
       "duplicant_data": {
         "count": 11,
+        "list": [
+          {
+            "identity": {
+              "name": "Joshua",
+              "gender": "MALE",
+              "arrival_time": 0
+            },
+            "role": "Builder",
+            "vitals": {
+              "calories": 2445434.25,
+              "health": null,
+              "stress": 1.616665244102478,
+              "stamina": 70.10939025878906,
+              "decor": -17.500001907348633,
+              "temperature": 310.15069580078125,
+              "breath": 100.0,
+              "bladder": 51.89955139160156,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "CantCook",
+              "StickerBomber",
+              "UglyCrier",
+              "Uncultured"
+            ],
+            "effects": [
+              "ColdAir",
+              "WarmAir"
+            ],
+            "aptitudes": {
+              "Building": 3,
+              "Hauling": 2,
+              "Mining": 3
+            },
+            "position": {
+              "x": 72.5,
+              "y": 42.0099983215332,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Abe",
+              "gender": "MALE",
+              "arrival_time": 0
+            },
+            "role": "Resea",
+            "vitals": {
+              "calories": 3453515.5,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 86.07157897949219,
+              "decor": -17.666664123535156,
+              "temperature": 310.1492004394531,
+              "breath": 100.0,
+              "bladder": 54.666175842285156,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "BalloonArtist",
+              "EarlyBird",
+              "Narcolepsy",
+              "UglyCrier"
+            ],
+            "effects": [
+              "\u0006\u0000\u0000\u0000Dec"
+            ],
+            "aptitudes": {
+              "Research": 2,
+              "Hauling": 2,
+              "Basekeeping": 2,
+              "Mining": 1
+            },
+            "position": {
+              "x": 37.5,
+              "y": 126.01000213623047,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Catalina",
+              "gender": "FEMALE",
+              "arrival_time": 1073741824
+            },
+            "role": "Pyrotechnician",
+            "vitals": {
+              "calories": 3428520.0,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 72.37646484375,
+              "decor": -12.166672706604004,
+              "temperature": 310.1507263183594,
+              "breath": 100.0,
+              "bladder": 57.1661376953125,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "EarlyBird",
+              "InteriorDecorator",
+              "StressVomiter",
+              "SuperProductive",
+              "WeakImmuneSystem"
+            ],
+            "effects": [
+              "ColdAir",
+              "WarmAir"
+            ],
+            "aptitudes": {
+              "Hauling": 2,
+              "Basekeeping": 2,
+              "Technicals": 2,
+              "Engineering": 1
+            },
+            "position": {
+              "x": 74.5,
+              "y": 115.01000213623047,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Leira",
+              "gender": "FEMALE",
+              "arrival_time": 1084227584
+            },
+            "role": "Artist",
+            "vitals": {
+              "calories": 3458847.75,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 72.88973999023438,
+              "decor": -0.8334808349609375,
+              "temperature": 310.1504211425781,
+              "breath": 100.0,
+              "bladder": 54.132850646972656,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "BingeEater",
+              "IronGut",
+              "SimpleTastes",
+              "SparkleStreaker",
+              "StrongImmuneSystem"
+            ],
+            "effects": [
+              "ColdAir",
+              "WarmAir"
+            ],
+            "aptitudes": {
+              "Technicals": 2,
+              "Hauling": 2,
+              "Engineering": 1,
+              "Art": 3,
+              "Management": 1
+            },
+            "position": {
+              "x": 78.5,
+              "y": 110.01000213623047,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Nails",
+              "gender": "NB",
+              "arrival_time": 1090519040
+            },
+            "role": "Engineer",
+            "vitals": {
+              "calories": 3419190.0,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 72.09649658203125,
+              "decor": -9.5,
+              "temperature": 310.14984130859375,
+              "breath": 100.0,
+              "bladder": 58.132789611816406,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "BalloonArtist",
+              "CantCook",
+              "StrongImmuneSystem",
+              "UglyCrier"
+            ],
+            "effects": [
+              "\f\u0000\u0000\u0000Roo"
+            ],
+            "aptitudes": {
+              "Art": 1,
+              "Hauling": 2,
+              "Basekeeping": 1,
+              "Technicals": 2,
+              "Engineering": 1,
+              "Management": 1,
+              "Suits": 1
+            },
+            "position": {
+              "x": 36.5,
+              "y": 126.01000213623047,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Nikola",
+              "gender": "MALE",
+              "arrival_time": 1102577664
+            },
+            "role": "Engineer",
+            "vitals": {
+              "calories": 3433855.25,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 72.30647277832031,
+              "decor": -26.166669845581055,
+              "temperature": 310.14923095703125,
+              "breath": 100.0,
+              "bladder": 56.66614532470703,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "Aggressive",
+              "SuperProductive"
+            ],
+            "effects": [
+              "\f\u0000\u0000\u0000Ro"
+            ],
+            "aptitudes": {
+              "Hauling": 2,
+              "Technicals": 2,
+              "Engineering": 1,
+              "Mining": 1,
+              "Management": 1,
+              "Suits": 1
+            },
+            "position": {
+              "x": 36.05000686645508,
+              "y": 131.00999450683594,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Ren",
+              "gender": "MALE",
+              "arrival_time": 1105723392
+            },
+            "role": "Ranc",
+            "vitals": {
+              "calories": 2424438.5,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 72.23648071289062,
+              "decor": -53.49998092651367,
+              "temperature": 310.1506652832031,
+              "breath": 100.0,
+              "bladder": 51.699554443359375,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "BalloonArtist",
+              "IronGut",
+              "StressVomiter",
+              "Uncultured"
+            ],
+            "effects": [
+              "ColdAir",
+              "WarmAir"
+            ],
+            "aptitudes": {
+              "Farming": 1,
+              "Ranching": 2,
+              "Hauling": 2,
+              "Basekeeping": 2
+            },
+            "position": {
+              "x": 73.5,
+              "y": 117.51412963867188,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Lindsay",
+              "gender": "FEMALE",
+              "arrival_time": 1107296256
+            },
+            "role": "Miner",
+            "vitals": {
+              "calories": 1449446.125,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 73.51966857910156,
+              "decor": 38.5,
+              "temperature": 310.1508483886719,
+              "breath": 100.0,
+              "bladder": 46.132972717285156,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "StickerBomber",
+              "StrongImmuneSystem",
+              "UglyCrier",
+              "Uncultured"
+            ],
+            "effects": [
+              "\u0006\u0000\u0000\u0000"
+            ],
+            "aptitudes": {
+              "Mining": 3,
+              "Cooking": 2,
+              "Hauling": 2
+            },
+            "position": {
+              "x": 79.72417449951172,
+              "y": 126.01000213623047,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Otto",
+              "gender": "NB",
+              "arrival_time": 1109131264
+            },
+            "role": "Farmer",
+            "vitals": {
+              "calories": 1443021.625,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 75.78274536132812,
+              "decor": 41.16667175292969,
+              "temperature": 310.1491394042969,
+              "breath": 100.0,
+              "bladder": 51.36622619628906,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "Allergies",
+              "BalloonArtist",
+              "Greasemonkey",
+              "StressVomiter"
+            ],
+            "effects": [
+              "\f\u0000\u0000\u0000"
+            ],
+            "aptitudes": {
+              "Farming": 3,
+              "Hauling": 2,
+              "Mining": 1
+            },
+            "position": {
+              "x": 81.5,
+              "y": 126.01000213623047,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Steve",
+              "gender": "MALE",
+              "arrival_time": 1118437376
+            },
+            "role": "Doctor",
+            "vitals": {
+              "calories": 3426188.75,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 72.23648071289062,
+              "decor": 41.16667175292969,
+              "temperature": 310.1491394042969,
+              "breath": 100.0,
+              "bladder": 57.43280029296875,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "UglyCrier",
+              "Uncultured"
+            ],
+            "effects": [
+              "\u0006\u0000\u0000\u0000Dec"
+            ],
+            "aptitudes": {
+              "MedicalAid": 3,
+              "Hauling": 2
+            },
+            "position": {
+              "x": 81.5,
+              "y": 126.01000213623047,
+              "z": -25.5
+            }
+          },
+          {
+            "identity": {
+              "name": "Ashkan",
+              "gender": "MALE",
+              "arrival_time": 1121452032
+            },
+            "role": "Cook",
+            "vitals": {
+              "calories": 3438185.75,
+              "health": null,
+              "stress": 0.0,
+              "stamina": 72.25981140136719,
+              "decor": -63.5,
+              "temperature": 310.1501159667969,
+              "breath": 100.0,
+              "bladder": 56.199485778808594,
+              "immune_level": 100.0,
+              "toxicity": 0.0,
+              "radiation_balance": 0.0
+            },
+            "traits": [
+              "Allergies",
+              "BingeEater",
+              "IronGut",
+              "SparkleStreaker"
+            ],
+            "effects": [
+              "\u0006\u0000\u0000\u0000De"
+            ],
+            "aptitudes": {
+              "Cooking": 2,
+              "Hauling": 2
+            },
+            "position": {
+              "x": 32.5,
+              "y": 126.01000213623047,
+              "z": -25.5
+            }
+          }
+        ],
         "health_status": {},
         "morale_levels": {},
         "skill_assignments": {},
@@ -54,20 +508,20 @@
         "total_duplicants": 11,
         "average_health": 0.0,
         "average_morale": 0.0,
-        "average_stress": 0.0,
+        "average_stress": 0.1469695676456798,
         "skill_distribution": {},
         "critical_health": [],
         "high_stress": [],
         "unassigned_duplicants": []
       },
-      "ai_analysis": "I'm ready to help with Oxygen Not Included game analysis.",
+      "ai_analysis": "Hello! I'm a local AI model for testing.",
       "alerts": [],
       "recommendations": []
     },
     "threat": {
       "agent_id": "threat_test",
       "section": "threats",
-      "timestamp": "2025-08-09T11:40:03.832763",
+      "timestamp": "2025-08-09T14:11:04.734682",
       "threat_data": {
         "diseases": {},
         "temperature_zones": {},
@@ -91,7 +545,7 @@
     },
     "image": {
       "summary": "Local Vision Analysis: Analyze this Oxygen Not Included base screenshot a...",
-      "timestamp": 1754732403.8486972,
+      "timestamp": 1754741464.7374916,
       "image_hash": "65bf48dad0668c1c0f19d1321ee8efb8191d0b89faf59fe0a8bf3253a6f486be",
       "analysis_type": "base_overview"
     }

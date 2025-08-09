@@ -16,7 +16,7 @@ def test_real_save_generated_fields_present():
     entities = data.get("entities")
     assert isinstance(entities, dict)
 
-    # Duplicants checks
+    # Duplicants checks (entities contain raw minion list for backward compatibility)
     dups = entities.get("duplicants")
     assert isinstance(dups, list) and len(dups) > 0
 
@@ -41,5 +41,8 @@ def test_real_save_generated_fields_present():
         assert "calories" in vitals and isinstance(vitals["calories"], (int, float)) and vitals["calories"] >= 0
         assert "stamina" in vitals and isinstance(vitals["stamina"], (int, float)) and 0 <= vitals["stamina"] <= 100
         assert "stress" in vitals and isinstance(vitals["stress"], (int, float)) and 0 <= vitals["stress"] <= 100
+        # new vitals extensions exist
+        for key in ("decor", "temperature", "breath", "bladder", "immune_level", "toxicity", "radiation_balance"):
+            assert key in vitals
 
 

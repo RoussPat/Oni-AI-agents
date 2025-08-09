@@ -1,0 +1,184 @@
+{
+  "timestamp": "2025-08-09T11:40:03.266009",
+  "file_path": "test_data/clone_laboratory.sav",
+  "file_size_bytes": 2394836,
+  "success": true,
+  "error_message": "",
+  "warnings": [
+    "Type templates parsing not yet implemented",
+    "World data preserved as binary (not parsed)",
+    "Settings parsing not yet implemented",
+    "Simulation data preserved as binary",
+    "Game objects parsing not yet implemented",
+    "Game data parsing not yet implemented"
+  ],
+  "parse_time_seconds": 0.0036814212799072266,
+  "save_summary": {
+    "version": "7.36",
+    "cycles": 151,
+    "duplicants": 11,
+    "object_groups": 0,
+    "total_objects": 0,
+    "object_counts": {},
+    "world_data_size": 0,
+    "sim_data_size": 0
+  },
+  "entities": {
+    "duplicants": [
+      {
+        "x": 72.5,
+        "y": 42.0099983215332,
+        "z": -25.5,
+        "vitals": {
+          "stress": 1.616665244102478,
+          "stamina": 70.10939025878906,
+          "calories": 2445434.25
+        },
+        "name": "Joshua",
+        "gender": "MALE",
+        "arrival_time": 0,
+        "job": "NoRole"
+      },
+      {
+        "x": 37.5,
+        "y": 126.01000213623047,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 86.07157897949219,
+          "calories": 3453515.5
+        },
+        "name": "Abe",
+        "gender": "MALE",
+        "arrival_time": 0,
+        "job": "NoRole"
+      },
+      {
+        "x": 74.5,
+        "y": 115.01000213623047,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 72.37646484375,
+          "calories": 3428520.0
+        },
+        "name": "Catalina",
+        "gender": "FEMALE",
+        "job": "NoRole",
+        "arrival_time": 0
+      },
+      {
+        "x": 78.5,
+        "y": 110.01000213623047,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 72.88973999023438,
+          "calories": 3458847.75
+        },
+        "name": "Leira",
+        "gender": "FEMALE",
+        "job": "NoRole",
+        "arrival_time": 0
+      },
+      {
+        "x": 36.5,
+        "y": 126.01000213623047,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 72.09649658203125,
+          "calories": 3419190.0
+        },
+        "name": "Nails",
+        "gender": "NB",
+        "arrival_time": 0,
+        "job": "NoRole"
+      },
+      {
+        "x": 36.05000686645508,
+        "y": 131.00999450683594,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 72.30647277832031,
+          "calories": 3433855.25
+        },
+        "name": "Nikola",
+        "gender": "MALE",
+        "arrival_time": 0,
+        "job": "NoRole"
+      },
+      {
+        "x": 73.5,
+        "y": 117.51412963867188,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 72.23648071289062,
+          "calories": 2424438.5
+        },
+        "name": "Ren",
+        "gender": "MALE",
+        "job": "NoRole",
+        "arrival_time": 0
+      },
+      {
+        "x": 79.72417449951172,
+        "y": 126.01000213623047,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 73.51966857910156,
+          "calories": 1449446.125
+        },
+        "name": "Lindsay",
+        "gender": "FEMALE",
+        "job": "NoRole",
+        "arrival_time": 0
+      },
+      {
+        "x": 81.5,
+        "y": 126.01000213623047,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 75.78274536132812,
+          "calories": 1443021.625
+        },
+        "name": "Otto",
+        "gender": "NB",
+        "arrival_time": 0,
+        "job": "NoRole"
+      },
+      {
+        "x": 81.5,
+        "y": 126.01000213623047,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 72.23648071289062,
+          "calories": 3426188.75
+        },
+        "name": "Steve",
+        "gender": "MALE",
+        "arrival_time": 0,
+        "job": "NoRole"
+      },
+      {
+        "x": 32.5,
+        "y": 126.01000213623047,
+        "z": -25.5,
+        "vitals": {
+          "stress": 0.0,
+          "stamina": 72.25981140136719,
+          "calories": 3438185.75
+        },
+        "name": "Ashkan",
+        "gender": "MALE",
+        "job": "NoRole",
+        "arrival_time": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "timestamp": "2025-08-09T11:40:03.319914",
+  "test_type": "simple_save_parsing",
+  "success": true,
+  "file_info": {
+    "path": "test_data/clone_laboratory.sav",
+    "size_bytes": 2394836,
+    "size_mb": 2.28
+  },
+  "parsing_results": {
+    "parse_time_seconds": 0.0006010532379150391,
+    "warnings_count": 6,
+    "warnings": [
+      "Type templates parsing not yet implemented",
+      "World data preserved as binary (not parsed)",
+      "Settings parsing not yet implemented",
+      "Simulation data preserved as binary",
+      "Game objects parsing not yet implemented",
+      "Game data parsing not yet implemented"
+    ]
+  },
+  "game_data": {
+    "name": "The Clone Laboratory",
+    "version": "7.36",
+    "build_version": 679336,
+    "header_version": 1,
+    "is_compressed": true,
+    "cycles": 151,
+    "duplicants": 11,
+    "cluster_id": "expansion1::clusters/SandstoneStartCluster",
+    "dlc_ids": [
+      "EXPANSION1_ID"
+    ],
+    "auto_save": false,
+    "sandbox_enabled": false,
+    "colony_guid": "3669fa18-442e-4529-838c-da45d593a93d"
+  },
+  "full_game_info": {
+    "numberOfCycles": 151,
+    "numberOfDuplicants": 11,
+    "baseName": "The Clone Laboratory",
+    "isAutoSave": false,
+    "originalSaveName": "The Clone Laboratory.sav",
+    "saveMajorVersion": 7,
+    "saveMinorVersion": 36,
+    "clusterId": "expansion1::clusters/SandstoneStartCluster",
+    "worldTraits": null,
+    "sandboxEnabled": false,
+    "colonyGuid": "3669fa18-442e-4529-838c-da45d593a93d",
+    "dlcId": null,
+    "dlcIds": [
+      "EXPANSION1_ID"
+    ],
+    "buildVersion": 679336,
+    "headerVersion": 1,
+    "isCompressed": true
+  }
+}

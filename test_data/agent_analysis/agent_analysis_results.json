@@ -1,0 +1,125 @@
+{
+  "timestamp": "2025-08-09T11:40:03.848782",
+  "save_file": "test_data/clone_laboratory.sav",
+  "save_summary": {
+    "version": "7.36",
+    "cycles": 151,
+    "duplicants": 11,
+    "object_groups": 0,
+    "total_objects": 0,
+    "object_counts": {},
+    "world_data_size": 0,
+    "sim_data_size": 0
+  },
+  "game_info": {
+    "numberOfCycles": 151,
+    "numberOfDuplicants": 11,
+    "baseName": "The Clone Laboratory",
+    "isAutoSave": false,
+    "originalSaveName": "The Clone Laboratory.sav",
+    "saveMajorVersion": 7,
+    "saveMinorVersion": 36,
+    "clusterId": "expansion1::clusters/SandstoneStartCluster",
+    "worldTraits": null,
+    "sandboxEnabled": false,
+    "colonyGuid": "3669fa18-442e-4529-838c-da45d593a93d",
+    "dlcId": null,
+    "dlcIds": [
+      "EXPANSION1_ID"
+    ],
+    "buildVersion": 679336,
+    "headerVersion": 1,
+    "isCompressed": true
+  },
+  "agent_analyses": {
+    "resource": {
+      "agent_id": "resource_test",
+      "section": "resources",
+      "error": "'<' not supported between instances of 'NoneType' and 'int'",
+      "timestamp": "2025-08-09T11:40:03.526426"
+    },
+    "duplicant": {
+      "agent_id": "duplicant_test",
+      "section": "duplicants",
+      "timestamp": "2025-08-09T11:40:03.679956",
+      "duplicant_data": {
+        "count": 11,
+        "health_status": {},
+        "morale_levels": {},
+        "skill_assignments": {},
+        "current_tasks": {},
+        "stress_levels": {}
+      },
+      "basic_analysis": {
+        "total_duplicants": 11,
+        "average_health": 0.0,
+        "average_morale": 0.0,
+        "average_stress": 0.0,
+        "skill_distribution": {},
+        "critical_health": [],
+        "high_stress": [],
+        "unassigned_duplicants": []
+      },
+      "ai_analysis": "I'm ready to help with Oxygen Not Included game analysis.",
+      "alerts": [],
+      "recommendations": []
+    },
+    "threat": {
+      "agent_id": "threat_test",
+      "section": "threats",
+      "timestamp": "2025-08-09T11:40:03.832763",
+      "threat_data": {
+        "diseases": {},
+        "temperature_zones": {},
+        "pressure_issues": {},
+        "contamination": {},
+        "hostile_creatures": {}
+      },
+      "basic_analysis": {
+        "active_diseases": [],
+        "hot_zones": [],
+        "pressure_problems": [],
+        "contaminated_areas": [],
+        "hostile_count": 0,
+        "critical_threats": [],
+        "environmental_stability": "unknown"
+      },
+      "ai_analysis": "I'm ready to help with Oxygen Not Included game analysis.",
+      "alerts": [],
+      "emergency_actions": [],
+      "threat_level": "low"
+    },
+    "image": {
+      "summary": "Local Vision Analysis: Analyze this Oxygen Not Included base screenshot a...",
+      "timestamp": 1754732403.8486972,
+      "image_hash": "65bf48dad0668c1c0f19d1321ee8efb8191d0b89faf59fe0a8bf3253a6f486be",
+      "analysis_type": "base_overview"
+    }
+  },
+  "mock_data_used": {
+    "resource_data": {
+      "cycles": 151,
+      "base_name": "The Clone Laboratory",
+      "cluster_id": "expansion1::clusters/SandstoneStartCluster",
+      "food": 1000,
+      "oxygen": 85,
+      "power": 60,
+      "duplicant_count": 11
+    },
+    "duplicant_data": {
+      "count": 11,
+      "cycles_played": 151,
+      "colony_name": "The Clone Laboratory",
+      "health_status": {},
+      "morale_levels": {},
+      "skill_assignments": {}
+    },
+    "threat_data": {
+      "colony_age_cycles": 151,
+      "diseases": {},
+      "temperature_zones": {},
+      "pressure_issues": {},
+      "environment_stability": "unknown"
+    }
+  }
+}

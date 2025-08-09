@@ -1,0 +1,511 @@
+{
+  "file_size": 2394836,
+  "analysis_timestamp": "2025-08-09T10:02:09.428855",
+  "byte_distribution": {
+    "0x00": 16303,
+    "0xfd": 13998,
+    "0x7f": 13958,
+    "0xfe": 13754,
+    "0x3f": 13495,
+    "0xbf": 13453,
+    "0xff": 13341,
+    "0x1f": 13230,
+    "0xdf": 13013,
+    "0x7e": 12934
+  },
+  "potential_structures": [
+    {
+      "offset": 428,
+      "type": "string",
+      "length": 12,
+      "content": "WidthInCells"
+    },
+    {
+      "offset": 480,
+      "type": "string",
+      "length": 9,
+      "content": "clusterID"
+    },
+    {
+      "offset": 524,
+      "type": "string",
+      "length": 11,
+      "content": "active_mods"
+    },
+    {
+      "offset": 556,
+      "type": "string",
+      "length": 10,
+      "content": "KMod.Label"
+    },
+    {
+      "offset": 604,
+      "type": "string",
+      "length": 31,
+      "content": "KMod.Label+DistributionPlatform"
+    },
+    {
+      "offset": 656,
+      "type": "string",
+      "length": 7,
+      "content": "version"
+    },
+    {
+      "offset": 668,
+      "type": "string",
+      "length": 13,
+      "content": "Game+Settings"
+    },
+    {
+      "offset": 964,
+      "type": "string",
+      "length": 4,
+      "content": "name"
+    },
+    {
+      "offset": 1236,
+      "type": "string",
+      "length": 16,
+      "content": "activeResearchId"
+    },
+    {
+      "offset": 1648,
+      "type": "string",
+      "length": 13,
+      "content": "previousFrame"
+    },
+    {
+      "offset": 1812,
+      "type": "string",
+      "length": 19,
+      "content": "amountsConsumedByID"
+    },
+    {
+      "offset": 2012,
+      "type": "string",
+      "length": 9,
+      "content": "TimeOfDay"
+    },
+    {
+      "offset": 2064,
+      "type": "string",
+      "length": 5,
+      "content": "frame"
+    },
+    {
+      "offset": 2296,
+      "type": "string",
+      "length": 25,
+      "content": "defaultPersonalPriorities"
+    },
+    {
+      "offset": 2328,
+      "type": "string",
+      "length": 12,
+      "content": "HashedString"
+    },
+    {
+      "offset": 2636,
+      "type": "string",
+      "length": 7,
+      "content": "Message"
+    },
+    {
+      "offset": 3224,
+      "type": "string",
+      "length": 19,
+      "content": "serializationBuffer"
+    },
+    {
+      "offset": 3276,
+      "type": "string",
+      "length": 9,
+      "content": "schedules"
+    },
+    {
+      "offset": 3292,
+      "type": "string",
+      "length": 8,
+      "content": "Schedule"
+    },
+    {
+      "offset": 3304,
+      "type": "string",
+      "length": 8,
+      "content": "lastHour"
+    },
+    {
+      "offset": 3544,
+      "type": "string",
+      "length": 11,
+      "content": "Schedulable"
+    },
+    {
+      "offset": 3568,
+      "type": "string",
+      "length": 14,
+      "content": "alarmActivated"
+    },
+    {
+      "offset": 3672,
+      "type": "string",
+      "length": 4,
+      "content": "name"
+    },
+    {
+      "offset": 3804,
+      "type": "string",
+      "length": 18,
+      "content": "AccumulatorManager"
+    },
+    {
+      "offset": 3924,
+      "type": "string",
+      "length": 25,
+      "content": "ReportManager+DailyReport"
+    },
+    {
+      "offset": 4020,
+      "type": "string",
+      "length": 13,
+      "content": "reportEntries"
+    },
+    {
+      "offset": 4040,
+      "type": "string",
+      "length": 25,
+      "content": "ReportManager+ReportEntry"
+    },
+    {
+      "offset": 4124,
+      "type": "string",
+      "length": 8,
+      "content": "gameHash"
+    },
+    {
+      "offset": 4152,
+      "type": "string",
+      "length": 24,
+      "content": "ReportManager+ReportType"
+    },
+    {
+      "offset": 4180,
+      "type": "string",
+      "length": 7,
+      "content": "context"
+    },
+    {
+      "offset": 4192,
+      "type": "string",
+      "length": 10,
+      "content": "accumulate"
+    },
+    {
+      "offset": 4404,
+      "type": "string",
+      "length": 111,
+      "content": "ArrayRef`1[[ReportManager+ReportEntry, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyT"
+    },
+    {
+      "offset": 4600,
+      "type": "string",
+      "length": 15,
+      "content": "ConsumerManager"
+    },
+    {
+      "offset": 4772,
+      "type": "string",
+      "length": 23,
+      "content": "defaultChorePermissions"
+    },
+    {
+      "offset": 5200,
+      "type": "string",
+      "length": 9,
+      "content": "orthoSize"
+    },
+    {
+      "offset": 5264,
+      "type": "string",
+      "length": 17,
+      "content": "serializedMinions"
+    },
+    {
+      "offset": 5288,
+      "type": "string",
+      "length": 18,
+      "content": "MinionStorage+Info"
+    },
+    {
+      "offset": 5392,
+      "type": "string",
+      "length": 100,
+      "content": "Ref`1[[KPrefabID, Assembly-CSharp-firstpass, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+    },
+    {
+      "offset": 5540,
+      "type": "string",
+      "length": 10,
+      "content": "spacecraft"
+    },
+    {
+      "offset": 5592,
+      "type": "string",
+      "length": 20,
+      "content": "analyzeDestinationID"
+    },
+    {
+      "offset": 5640,
+      "type": "string",
+      "length": 12,
+      "content": "destinations"
+    },
+    {
+      "offset": 5740,
+      "type": "string",
+      "length": 25,
+      "content": "destinationAnalysisScores"
+    },
+    {
+      "offset": 5920,
+      "type": "string",
+      "length": 19,
+      "content": "GermExposureTracker"
+    },
+    {
+      "offset": 6060,
+      "type": "string",
+      "length": 24,
+      "content": "fetchDupeChoreDeliveries"
+    },
+    {
+      "offset": 6092,
+      "type": "string",
+      "length": 26,
+      "content": "dupesCompleteChoresInSuits"
+    },
+    {
+      "offset": 6128,
+      "type": "string",
+      "length": 17,
+      "content": "tamedCritterTypes"
+    },
+    {
+      "offset": 6268,
+      "type": "string",
+      "length": 31,
+      "content": "harvestAHiveWithoutGettingStung"
+    },
+    {
+      "offset": 6304,
+      "type": "string",
+      "length": 38,
+      "content": "cyclesRocketDupeMoraleAboveRequirement"
+    },
+    {
+      "offset": 6444,
+      "type": "string",
+      "length": 18,
+      "content": "largeImpactorState"
+    },
+    {
+      "offset": 6576,
+      "type": "string",
+      "length": 19,
+      "content": "updatingAchievement"
+    },
+    {
+      "offset": 6600,
+      "type": "string",
+      "length": 30,
+      "content": "completedAchievementsToDisplay"
+    },
+    {
+      "offset": 6688,
+      "type": "string",
+      "length": 21,
+      "content": "GameplayEventInstance"
+    },
+    {
+      "offset": 6864,
+      "type": "string",
+      "length": 22,
+      "content": "DrowningMonitorUpdater"
+    },
+    {
+      "offset": 7028,
+      "type": "string",
+      "length": 22,
+      "content": "PlantSubSpeciesCatalog"
+    },
+    {
+      "offset": 7108,
+      "type": "string",
+      "length": 37,
+      "content": "PlantSubSpeciesCatalog+SubSpeciesInfo"
+    },
+    {
+      "offset": 7232,
+      "type": "string",
+      "length": 9,
+      "content": "speciesID"
+    },
+    {
+      "offset": 7376,
+      "type": "string",
+      "length": 10,
+      "content": "Discovered"
+    },
+    {
+      "offset": 7400,
+      "type": "string",
+      "length": 20,
+      "content": "DiscoveredCategories"
+    },
+    {
+      "offset": 7444,
+      "type": "string",
+      "length": 14,
+      "content": "newDiscoveries"
+    },
+    {
+      "offset": 7496,
+      "type": "string",
+      "length": 23,
+      "content": "ColonyDiagnosticUtility"
+    },
+    {
+      "offset": 7648,
+      "type": "string",
+      "length": 24,
+      "content": "diagnosticTutorialStatus"
+    },
+    {
+      "offset": 7680,
+      "type": "string",
+      "length": 16,
+      "content": "ArtifactSelector"
+    },
+    {
+      "offset": 7708,
+      "type": "string",
+      "length": 15,
+      "content": "placedArtifacts"
+    },
+    {
+      "offset": 7860,
+      "type": "string",
+      "length": 22,
+      "content": "m_researchDestinations"
+    },
+    {
+      "offset": 8136,
+      "type": "string",
+      "length": 12,
+      "content": "TemporalTear"
+    },
+    {
+      "offset": 8152,
+      "type": "string",
+      "length": 93,
+      "content": "Ref`1[[TemporalTear, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+    },
+    {
+      "offset": 8264,
+      "type": "string",
+      "length": 12,
+      "content": "StoryManager"
+    },
+    {
+      "offset": 8288,
+      "type": "string",
+      "length": 8,
+      "content": "_stories"
+    },
+    {
+      "offset": 8304,
+      "type": "string",
+      "length": 13,
+      "content": "StoryInstance"
+    },
+    {
+      "offset": 8420,
+      "type": "string",
+      "length": 19,
+      "content": "StoryInstance+State"
+    },
+    {
+      "offset": 8488,
+      "type": "string",
+      "length": 20,
+      "content": "popupDisplayedStates"
+    },
+    {
+      "offset": 8548,
+      "type": "string",
+      "length": 27,
+      "content": "StoryManager+StoryTelemetry"
+    },
+    {
+      "offset": 8728,
+      "type": "string",
+      "length": 18,
+      "content": "ElectrobankTracker"
+    },
+    {
+      "offset": 9132,
+      "type": "string",
+      "length": 128,
+      "content": "WorldResourceAmountTracker`1+Frame[[ElectrobankTracker, Assembly-CSharp, Version=0.0.0.0, Culture=ne"
+    },
+    {
+      "offset": 9272,
+      "type": "string",
+      "length": 14,
+      "content": "amountProduced"
+    },
+    {
+      "offset": 9344,
+      "type": "string",
+      "length": 28,
+      "content": "ColonyRationMonitor+Instance"
+    },
+    {
+      "offset": 9384,
+      "type": "string",
+      "length": 30,
+      "content": "GameplaySeasonManager+Instance"
+    },
+    {
+      "offset": 9480,
+      "type": "string",
+      "length": 31,
+      "content": "ClusterFogOfWarManager+Instance"
+    },
+    {
+      "offset": 9664,
+      "type": "string",
+      "length": 5,
+      "content": "cells"
+    },
+    {
+      "offset": 9676,
+      "type": "string",
+      "length": 10,
+      "content": "elementIds"
+    },
+    {
+      "offset": 9980,
+      "type": "string",
+      "length": 11,
+      "content": "diseaseName"
+    },
+    {
+      "offset": 9996,
+      "type": "string",
+      "length": 12,
+      "content": "diseaseCount"
+    }
+  ],
+  "compression_analysis": []
+}

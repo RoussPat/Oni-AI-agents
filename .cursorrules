@@ -1,0 +1,151 @@
+# Cursor Rules for Professional Python Software Engineering
+
+## 🥇 Golden Rules
+
+### 1. Be Agentic and Think Before Acting
+- Always analyze the problem thoroughly before writing code
+- Ask clarifying questions to understand requirements precisely
+- Consider multiple approaches and trade-offs before implementation
+- Act as a professional Python software engineer with years of experience
+- Think about edge cases, performance, maintainability, and scalability
+- Don't rush into coding - plan first, then execute
+
+## 🏗️ Core Framework & Architecture
+
+### Python Framework & Environment
+- Use modern Python (3.8+) with type hints
+- Prefer async/await for I/O operations
+- Use dataclasses, enums, and modern Python features
+- Implement proper dependency injection
+- Use environment variables for configuration
+- Use Flask for web applications (lightweight and flexible)
+- Keep it simple - no database for POC projects unless explicitly needed
+
+### Architecture Patterns
+- Follow SOLID principles
+- Implement Clean Architecture with clear separation of concerns:
+  - Entities (core business objects)
+  - Use Cases (business logic)
+  - Interface Adapters (controllers, presenters)
+  - Frameworks & Drivers (web, database, external interfaces)
+- Use dependency injection for loose coupling
+- Prefer composition over inheritance
+- Implement proper abstraction layers
+- Use REST API design principles for web endpoints
+
+## 📁 File Structure & Organization
+
+### Project Structure
+```
+project_name/
+├── src/
+│   └── project_name/
+│       ├── __init__.py
+│       ├── core/
+│       ├── services/
+│       ├── models/
+│       └── utils/
+├── tests/
+├── docs/
+├── scripts/
+├── requirements/
+├── .env.example
+├── README.md
+└── setup.py
+```
+
+## 🛡️ Error Handling & Testing
+
+### Error Handling Strategy
+- Use custom exception classes
+- Implement proper logging with structured logging
+- Handle errors gracefully with meaningful messages
+- Use context managers for resource management
+- Implement retry mechanisms where appropriate
+
+### Testing Strategy
+- Write unit tests for all functions and classes
+- Use pytest as the testing framework
+- Implement integration tests for critical paths
+- Use mocking for external dependencies
+- Maintain high test coverage (>80%)
+- Use property-based testing where applicable
+- Focus on POC functionality first, comprehensive testing later
+
+## 🔧 Development Environment
+
+### Code Quality & Standards
+- Use black for code formatting
+- Use isort for import sorting
+- Use flake8 for linting
+- Use mypy for type checking
+- Use pre-commit hooks for quality gates
+
+### Git Practices
+- Use conventional commits
+- Create feature branches for new development
+- Write meaningful commit messages
+- Use pull requests for code review
+- Keep commits atomic and focused
+
+## 📚 Documentation Policy
+
+### Code Documentation
+- Write docstrings for all public functions and classes
+- Use Google or NumPy docstring format
+- Include type hints in all function signatures
+- Document complex algorithms and business logic
+- Keep README.md updated with setup and usage instructions
+
+### API Documentation
+- Document all REST API endpoints with clear descriptions
+- Include request/response examples
+- Specify HTTP status codes and error responses
+- Use docstrings for endpoint functions
+- Consider using Flask-RESTX or similar for automatic API docs
+
+## 🚀 Deployment & Configuration
+
+### Environment Configuration
+- Use environment variables for all configuration
+- Provide .env.example files
+- Use configuration classes with validation
+- Implement proper secrets management
+- Use different configs for dev/staging/prod
+- Keep it simple for POC - local development focus
+- No cloud deployment requirements for now
+
+## 🎯 Code Implementation Guidelines
+
+### General Principles
+- Write self-documenting code with clear variable names
+- Keep functions small and focused (single responsibility)
+- Use meaningful comments for complex logic
+- Implement proper logging throughout the application
+- Follow PEP 8 style guidelines
+- Use type hints consistently
+
+### Decision Tracking
+- Document all significant architectural and technical decisions in `DECISIONS.md`
+- Use ADR (Architecture Decision Record) format for consistency
+- Include context, rationale, alternatives, and consequences
+- Update decision records when making changes to previous decisions
+- Reference decision records in code comments when implementing decisions
+
+### Performance & Scalability
+- Profile code for performance bottlenecks
+- Use appropriate data structures
+- Implement caching where beneficial
+- Consider memory usage and garbage collection
+- Use async/await for I/O bound operations
+
+## 🔍 Code Review Checklist
+- [ ] Type hints are complete and accurate
+- [ ] Error handling is comprehensive
+- [ ] Tests are written and passing (for POC, focus on core functionality)
+- [ ] Documentation is updated
+- [ ] Code follows style guidelines
+- [ ] API endpoints are properly documented
+- [ ] Clean Architecture layers are properly separated
+- [ ] Performance considerations addressed
+- [ ] Security review (when moving beyond POC) 

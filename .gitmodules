@@ -1,0 +1,6 @@
+[submodule "research/robophred-js"]
+	path = research/robophred-js
+	url = https://github.com/RoboPhred/oni-save-parser.git
+[submodule "research/sheepReaper-dotnet"]
+	path = research/sheepReaper-dotnet
+	url = https://github.com/SheepReaper/OniSaveParser.git

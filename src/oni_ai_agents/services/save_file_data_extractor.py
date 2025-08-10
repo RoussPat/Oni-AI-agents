@@ -13,6 +13,10 @@ from typing import Any, Dict, Optional
 import logging
 
 from .oni_save_parser import OniSaveParser
+from .oni_save_parser.world_grid_histogrammer import (
+    compute_histograms,
+    compute_breathable_percent,
+)
 
 
 @dataclass
@@ -117,10 +121,28 @@ class SaveFileDataExtractor:
             "hostile_creatures": {},
         }
 
+        # World grid summary (Phase 1 scaffold)
+        world_width = int(save_game.world.width_in_cells or 0)
+        world_height = int(save_game.world.height_in_cells or 0)
+        cell_count = world_width * world_height if world_width > 0 and world_height > 0 else 0
+        histograms = compute_histograms(save_game.sim_data or b"", world_width, world_height)
+        breathable_percent = compute_breathable_percent(histograms, cell_count)
+        world_warnings = list(result.warnings)
+
+        world_grid_summary = {
+            "width": world_width,
+            "height": world_height,
+            "cell_count": cell_count,
+            "histograms": histograms,
+            "breathable_percent": breathable_percent,
+            "warnings": world_warnings,
+        }
+
         sections = {
             "resources": resources_section,
             "duplicants": duplicants_section,
             "threats": threats_section,
+            "world_grid_summary": world_grid_summary,
         }
 
         header = {

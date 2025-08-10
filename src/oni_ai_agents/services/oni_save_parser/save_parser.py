@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 
 from .binary_reader import BinaryReader
+from .world_grid_histogrammer import (
+    compute_histograms,
+    compute_breathable_percent,
+    compute_structures_histogram,
+    compute_temperature_histogram_from_body,
+)
 from .data_structures import (
     SaveGame, SaveGameHeader, SaveGameVersion, TypeTemplates, TypeTemplate,
     SaveGameWorld, SaveGameSettings, GameObjectGroups, SaveGameData,
@@ -74,6 +80,9 @@ class OniSaveParser:
             with open(file_path, 'rb') as f:
                 file_data = f.read()
             
+            # Preserve raw file bytes for downstream parsing helpers
+            self._last_file_bytes = file_data
+
             # Parse the save file
             save_game = self._parse_save_data(file_data, result)
             
@@ -88,11 +97,138 @@ class OniSaveParser:
                 except Exception as _:
                     # Non-fatal if entity extraction fails
                     pass
+                # Embed world grid summary scaffold (counts-only, no sampling)
+                try:
+                    world_width = int(save_game.world.width_in_cells or 0)
+                    world_height = int(save_game.world.height_in_cells or 0)
+                    cell_count = world_width * world_height if world_width > 0 and world_height > 0 else 0
+                    histograms = compute_histograms(save_game.sim_data or b"", world_width, world_height)
+                    breathable_percent = compute_breathable_percent(histograms, cell_count)
+                    # Add structures histogram from object group counts
+                    # Ensure object_group_counts is available prior to building histogram
+                    ogc = result.entities.get('object_group_counts')
+                    if ogc is None:
+                        # If not present yet, compute quick counts now from KSAV body
+                        try:
+                            body = getattr(self, "_cached_sim_body", None)
+                            if body is None:
+                                fb: bytes = getattr(self, "_last_file_bytes", b"")
+                                if fb:
+                                    body = self._decompress_body_block(fb)
+                            counts = {}
+                            if body:
+                                import struct
+                                mv = memoryview(body)
+                                pos = body.find(b'KSAV')
+                                if pos != -1 and pos + 12 <= len(body):
+                                    p2 = pos + 4
+                                    _ = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
+                                    _ = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
+                                    gc = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
+                                    for _ in range(max(0, gc)):
+                                        if p2 + 4 > len(body):
+                                            break
+                                        nl = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
+                                        if nl < 0 or p2 + nl > len(body):
+                                            break
+                                        gname = bytes(mv[p2:p2+nl]).decode('utf-8', errors='ignore'); p2 += nl
+                                        if p2 + 8 > len(body):
+                                            break
+                                        ic = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
+                                        dl = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
+                                        counts[gname] = int(ic)
+                                        p2 = p2 + max(0, dl)
+                                        if p2 > len(body):
+                                            break
+                            if counts:
+                                result.entities['object_group_counts'] = counts
+                        except Exception:
+                            pass
+                    ogc = result.entities.get('object_group_counts', {})
+                    structures_hist = compute_structures_histogram(ogc, top_n=25)
+
+                    # Temperature buckets (best-effort from behaviors)
+                    temp_hist = {}
+                    try:
+                        body = getattr(self, "_cached_sim_body", None)
+                        if body is None:
+                            fb: bytes = getattr(self, "_last_file_bytes", b"")
+                            body = self._decompress_body_block(fb) if fb else None
+                        temp_hist = compute_temperature_histogram_from_body(body or b"")
+                    except Exception:
+                        temp_hist = {}
+
+                    world_grid_summary = {
+                        "width": world_width,
+                        "height": world_height,
+                        "cell_count": cell_count,
+                        "histograms": {
+                            **histograms,
+                            "structures": structures_hist,
+                            "temperatures": temp_hist or histograms.get("temperatures", {}),
+                        },
+                        "breathable_percent": breathable_percent,
+                        "warnings": list(result.warnings),
+                    }
+                    result.entities["world_grid_summary"] = world_grid_summary
+                    # Fallback: derive approximate world span from object positions if dims are 0
+                    if (world_width == 0 or world_height == 0):
+                        body = getattr(self, "_cached_sim_body", None)
+                        if body is None:
+                            fb: bytes = getattr(self, "_last_file_bytes", b"")
+                            body = self._decompress_body_block(fb) if fb else None
+                        bounds = self._compute_object_bounds_from_body(body or b"")
+                        if bounds:
+                            min_x, min_y, max_x, max_y = bounds
+                            approx_w = int(max(0, round(max_x - min_x)))
+                            approx_h = int(max(0, round(max_y - min_y)))
+                            world_grid_summary["approx_width_from_objects"] = approx_w
+                            world_grid_summary["approx_height_from_objects"] = approx_h
+                            world_grid_summary["approx_span_origin"] = {"x": min_x, "y": min_y}
+                except Exception:
+                    pass
                 
                 self.logger.info(f"Successfully parsed save file in {result.parse_time_seconds:.2f}s")
                 self.logger.info(f"Save version: {save_game.version}")
                 self.logger.info(f"Cycles: {save_game.header.num_cycles}")
                 self.logger.info(f"Duplicants: {save_game.header.num_duplicants}")
+                # Derive quick object group counts from decompressed body (best-effort)
+                try:
+                    body = getattr(self, "_cached_sim_body", None)
+                    if body is None:
+                        fb: bytes = getattr(self, "_last_file_bytes", b"")
+                        if fb:
+                            body = self._decompress_body_block(fb)
+                    if body:
+                        import struct
+                        mv = memoryview(body)
+                        pos = body.find(b'KSAV')
+                        if pos != -1 and pos + 12 <= len(body):
+                            p = pos + 4  # after 'KSAV'
+                            _maj = struct.unpack_from('<i', mv, p)[0]; p += 4
+                            _min = struct.unpack_from('<i', mv, p)[0]; p += 4
+                            group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                            counts = {}
+                            for _ in range(max(0, group_count)):
+                                if p + 4 > len(body):
+                                    break
+                                name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+                                if name_len < 0 or p + name_len > len(body):
+                                    break
+                                name = bytes(mv[p:p+name_len]).decode('utf-8', errors='ignore'); p += name_len
+                                if p + 8 > len(body):
+                                    break
+                                instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                                data_length = struct.unpack_from('<i', mv, p)[0]; p += 4
+                                counts[name] = int(instance_count)
+                                # skip payload
+                                p = p + max(0, data_length)
+                                if p > len(body):
+                                    break
+                            if counts:
+                                result.entities.setdefault('object_group_counts', counts)
+                except Exception:
+                    pass
             
         except Exception as e:
             self.logger.error(f"Error parsing save file: {e}")
@@ -175,6 +311,71 @@ class OniSaveParser:
                     return decompressed
             except Exception:
                 continue
+        return None
+
+    def _iter_decompressed_blocks(self, data: bytes):
+        """Yield all successfully decompressed zlib blocks after header JSON."""
+        import zlib
+        start_after_header, _ = self._parse_header_raw(data)
+        search = data[start_after_header:]
+        seen = set()
+        for sig in (b"\x78\x9c", b"\x78\xda", b"\x78\x01"):
+            idx = 0
+            while True:
+                pos = search.find(sig, idx)
+                if pos == -1:
+                    break
+                abs_pos = start_after_header + pos
+                if abs_pos in seen:
+                    idx = pos + 1
+                    continue
+                seen.add(abs_pos)
+                try:
+                    decompressed = zlib.decompress(data[abs_pos:])
+                    yield decompressed
+                except Exception:
+                    pass
+                idx = pos + 1
+
+    def _extract_world_dimensions_from_stream(self, file_bytes: bytes) -> Optional[Tuple[int, int]]:
+        """Search all decompressed blocks for world dimension info via JSON or KV scans."""
+        import json
+        for blob in self._iter_decompressed_blocks(file_bytes):
+            # Skip KSAV blob; it contains object groups, not top-level world dims
+            if b'KSAV' in blob[:4096]:
+                continue
+            # JSON path
+            try:
+                text = blob.decode('utf-8')
+                js = text.lstrip()
+                if js.startswith('{'):
+                    obj = json.loads(text)
+                    # Recursive search
+                    stack = [obj]
+                    width = None
+                    height = None
+                    while stack and (width is None or height is None):
+                        cur = stack.pop()
+                        if isinstance(cur, dict):
+                            for k, v in cur.items():
+                                kl = str(k)
+                                if kl in ("WidthInCells", "widthInCells") and isinstance(v, int):
+                                    width = v
+                                elif kl in ("HeightInCells", "heightInCells") and isinstance(v, int):
+                                    height = v
+                                elif isinstance(v, (dict, list)):
+                                    stack.append(v)
+                        elif isinstance(cur, list):
+                            stack.extend(cur)
+                    if width and height and 8 <= width <= 16384 and 8 <= height <= 16384:
+                        return width, height
+            except Exception:
+                pass
+            # Binary KV fallback
+            w = self._find_kv_int_in_body(blob, "WidthInCells", min_val=8, max_val=16384)
+            h = self._find_kv_int_in_body(blob, "HeightInCells", min_val=8, max_val=16384)
+            if w and h:
+                return w, h
         return None
 
     def _scan_klei_strings(self, mv: memoryview, start: int, end: int, max_strings: int = 32) -> List[str]:
@@ -861,6 +1062,412 @@ class OniSaveParser:
                 if p > len(body):
                     break
         return minions
+
+    def _extract_object_positions_from_body(self, body: bytes, per_group_limit: int = 50) -> Dict[str, List[Dict[str, Any]]]:
+        """Best-effort extraction of object instance positions (and optional temperature) by group.
+
+        This uses the same KSAV group traversal as duplicants, decoding the common
+        transform layout for each instance. Behavior payloads are not fully decoded;
+        a simple scan for plausible temperature values is attempted.
+        """
+        import struct
+        positions_by_group: Dict[str, List[Dict[str, Any]]] = {}
+
+        if not body:
+            return positions_by_group
+
+        mv = memoryview(body)
+        ksav = body.find(b'KSAV')
+        if ksav == -1:
+            return positions_by_group
+        p = ksav + 4
+        if p + 8 > len(body):
+            return positions_by_group
+        _ver_major = struct.unpack_from('<i', mv, p)[0]; p += 4
+        _ver_minor = struct.unpack_from('<i', mv, p)[0]; p += 4
+        if p + 4 > len(body):
+            return positions_by_group
+        try:
+            group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+        except Exception:
+            return positions_by_group
+
+        for _ in range(max(0, group_count)):
+            if p + 4 > len(body):
+                break
+            name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+            if name_len < 0 or p + name_len > len(body):
+                break
+            group_name = bytes(mv[p:p+name_len]).decode('utf-8', errors='ignore'); p += name_len
+            if p + 8 > len(body):
+                break
+            try:
+                instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                data_length = struct.unpack_from('<i', mv, p)[0]; p += 4
+            except Exception:
+                break
+            group_start = p
+            # Collect up to per_group_limit entries to avoid huge outputs
+            collected: List[Dict[str, Any]] = []
+            for _i in range(max(0, instance_count)):
+                # Ensure transform and header are present
+                if p + (3*4) + 16 + 12 + 1 + 4 > len(body):
+                    break
+                try:
+                    x, y, z = struct.unpack_from('<fff', mv, p); p += 12
+                except Exception:
+                    break
+                # Skip rotation (quaternion), scale
+                p += 16
+                p += 12
+                # Folder byte
+                p += 1
+                # Behavior count
+                try:
+                    behavior_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                except Exception:
+                    break
+
+                entry: Dict[str, Any] = {"x": float(x), "y": float(y), "z": float(z)}
+                # Optionally scan behaviors for a plausible temperature value
+                beh_p = p
+                for _b in range(max(0, behavior_count)):
+                    if beh_p + 4 > len(body):
+                        break
+                    beh_name_len = struct.unpack_from('<i', mv, beh_p)[0]; beh_p += 4
+                    if beh_name_len < 0 or beh_name_len > len(body) - beh_p:
+                        break
+                    beh_name = bytes(mv[beh_p:beh_p+beh_name_len]).decode('utf-8', errors='ignore'); beh_p += beh_name_len
+                    if beh_p + 4 > len(body):
+                        break
+                    beh_len = struct.unpack_from('<i', mv, beh_p)[0]; beh_p += 4
+                    beh_start = beh_p
+                    beh_end = beh_p + max(0, beh_len)
+                    if beh_end > len(body):
+                        break
+                    # Heuristic: if behavior likely carries thermal data, scan for plausible temperatures
+                    if beh_name in ("PrimaryElement", "Modifiers", "Building", "SimCellOccupier") and "temperature" not in entry:
+                        tval = self._scan_best_float32(mv, beh_start, beh_end, 0.0, 1000.0)
+                        if tval is not None:
+                            entry["temperature"] = float(tval)
+                    beh_p = beh_end
+                # Advance p to end of this instance's behavior block region
+                p = beh_p
+
+                if len(collected) < per_group_limit:
+                    collected.append(entry)
+            if collected:
+                positions_by_group[group_name] = collected
+            # Skip to end of this group payload
+            p = group_start + max(0, data_length)
+            if p > len(body):
+                break
+
+        return positions_by_group
+
+    def _compute_object_bounds_from_body(self, body: bytes) -> Optional[Tuple[float, float, float, float]]:
+        """Compute bounding box (min_x, min_y, max_x, max_y) across all object instances.
+
+        Best-effort traversal of KSAV groups to read instance transforms and
+        accumulate bounds without retaining per-instance data.
+        """
+        import struct
+        if not body:
+            return None
+        mv = memoryview(body)
+        ksav = body.find(b'KSAV')
+        if ksav == -1:
+            return None
+        p = ksav + 4
+        if p + 8 > len(body):
+            return None
+        _ = struct.unpack_from('<i', mv, p)[0]; p += 4  # major
+        _ = struct.unpack_from('<i', mv, p)[0]; p += 4  # minor
+        if p + 4 > len(body):
+            return None
+        try:
+            group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+        except Exception:
+            return None
+
+        min_x = float('inf'); min_y = float('inf')
+        max_x = float('-inf'); max_y = float('-inf')
+        for _ in range(max(0, group_count)):
+            if p + 4 > len(body):
+                break
+            name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+            if name_len < 0 or p + name_len > len(body):
+                break
+            # group_name not needed; skip
+            p += name_len
+            if p + 8 > len(body):
+                break
+            try:
+                instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                data_length = struct.unpack_from('<i', mv, p)[0]; p += 4
+            except Exception:
+                break
+            group_start = p
+            for _i in range(max(0, instance_count)):
+                if p + 12 > len(body):
+                    break
+                try:
+                    x, y, _z = struct.unpack_from('<fff', mv, p); p += 12
+                    # Skip rotation (16), scale (12), folder (1), behavior_count (4)
+                    p += 16 + 12 + 1 + 4
+                    # Skip behaviors by reading their lengths
+                    # We don't need to parse them; just advance p correctly
+                    # Read behavior blocks in a bounded fashion
+                    # Guard against overrun by tracking bytes consumed inside group
+                except Exception:
+                    break
+                # Update bounds
+                if x < min_x: min_x = x
+                if y < min_y: min_y = y
+                if x > max_x: max_x = x
+                if y > max_y: max_y = y
+                # Behaviors: move p over each behavior block using local pointer
+                # Because we already skipped behavior_count, we cannot know count without reading it.
+                # To keep this robust, fall back to scanning strings for next instance marker is complex;
+                # Instead, do a safe skip by attempting to align with next instance by reading until
+                # we reach or exceed group_start + data_length.
+                # Since precise skipping is handled in other methods, keep conservative here.
+                # Break to rely on group payload skip below to maintain correctness.
+                break
+            # Skip the remainder of the group payload safely
+            p = group_start + max(0, data_length)
+            if p > len(body):
+                break
+
+        if min_x == float('inf'):
+            return None
+        return (min_x, min_y, max_x, max_y)
+
+    def _find_kv_int_in_body(self, body: bytes, key_name: str, *, min_val: int = 1, max_val: int = 10000) -> Optional[int]:
+        """Scan decompressed body for a Klei key/value where key is `key_name` and value is an int.
+
+        Pattern assumed: [keyStr][kv_len:int32][payload_bytes], where payload contains an int32.
+        We validate value is between [min_val, max_val]. Returns first match.
+        """
+        import struct
+        if not body:
+            return None
+        mv = memoryview(body)
+        i = 0
+        key_bytes = key_name.encode('utf-8')
+        n = len(body)
+        while i + 4 < n:
+            try:
+                # Attempt to read a Klei string at offset i
+                # Read length
+                sl = struct.unpack_from('<i', mv, i)[0]
+                if sl <= 0 or sl > 256:
+                    i += 1
+                    continue
+                if i + 4 + sl > n:
+                    i += 1
+                    continue
+                s = bytes(mv[i+4:i+4+sl])
+                # Move past string
+                j = i + 4 + sl
+                # Must match desired key
+                if s != key_bytes:
+                    i += 1
+                    continue
+                # Next should be kv_len
+                if j + 4 > n:
+                    return None
+                kv_len = struct.unpack_from('<i', mv, j)[0]
+                j += 4
+                if kv_len < 4 or j + kv_len > n:
+                    # Not a plausible kv block
+                    i += 1
+                    continue
+                # Try read int32 at payload start
+                try:
+                    v = struct.unpack_from('<i', mv, j)[0]
+                    if min_val <= v <= max_val:
+                        return int(v)
+                except Exception:
+                    pass
+                # Also try little-endian 32-bit float cast to int if plausible
+                try:
+                    fv = struct.unpack_from('<f', mv, j)[0]
+                    if 0.0 <= fv <= float(max_val):
+                        vi = int(round(fv))
+                        if min_val <= vi <= max_val:
+                            return vi
+                except Exception:
+                    pass
+                i = j + kv_len
+            except Exception:
+                i += 1
+        return None
+
+    def _extract_world_dimensions_from_body(self, body: bytes) -> Optional[Tuple[int, int]]:
+        """Structured scan of KSAV behaviors to find WidthInCells/HeightInCells key-values.
+
+        Parses behavior payloads as key/value sequences using Klei string + length
+        framing to safely read the first numeric value for matching keys.
+        Returns (width, height) when both are found and plausible.
+        """
+        import struct
+        if not body:
+            return None
+        mv = memoryview(body)
+        ksav = body.find(b'KSAV')
+        if ksav == -1:
+            return None
+        p = ksav + 4
+        if p + 12 > len(body):
+            return None
+        _maj = struct.unpack_from('<i', mv, p)[0]; p += 4
+        _min = struct.unpack_from('<i', mv, p)[0]; p += 4
+        try:
+            group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+        except Exception:
+            return None
+        found_w: Optional[int] = None
+        found_h: Optional[int] = None
+
+        def read_first_number(pay_mv: memoryview, off: int, end: int) -> Optional[int]:
+            try:
+                if off + 4 <= end:
+                    v = struct.unpack_from('<i', pay_mv, off)[0]
+                    if 0 <= v <= 10000:
+                        return int(v)
+            except Exception:
+                pass
+            try:
+                if off + 4 <= end:
+                    fv = struct.unpack_from('<f', pay_mv, off)[0]
+                    if 0.0 <= fv <= 10000.0:
+                        return int(round(fv))
+            except Exception:
+                pass
+            return None
+
+        for _ in range(max(0, group_count)):
+            if p + 4 > len(body):
+                break
+            name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+            if name_len < 0 or p + name_len > len(body):
+                break
+            _group_name = bytes(mv[p:p+name_len]).decode('utf-8', errors='ignore'); p += name_len
+            if p + 8 > len(body):
+                break
+            try:
+                instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                data_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+            except Exception:
+                break
+            group_start = p
+            for _i in range(max(0, instance_count)):
+                if p + 12 + 16 + 12 + 1 + 4 > len(body):
+                    break
+                # Skip transform
+                p += 12 + 16 + 12 + 1
+                # Behavior count
+                try:
+                    bcount = struct.unpack_from('<i', mv, p)[0]; p += 4
+                except Exception:
+                    break
+                # Iterate behaviors
+                q = p
+                for _b in range(max(0, bcount)):
+                    if q + 4 > len(body):
+                        break
+                    blen = struct.unpack_from('<i', mv, q)[0]; q += 4
+                    if blen < 0 or q + blen > len(body):
+                        break
+                    bname = bytes(mv[q:q+blen]).decode('utf-8', errors='ignore'); q += blen
+                    if q + 4 > len(body):
+                        break
+                    plen = struct.unpack_from('<i', mv, q)[0]; q += 4
+                    bstart = q
+                    bend = q + max(0, plen)
+                    if bend > len(body):
+                        break
+                    # Parse KV pairs within behavior payload
+                    r = bstart
+                    while r < bend and (found_w is None or found_h is None):
+                        # Read key string
+                        try:
+                            if r + 4 > bend:
+                                break
+                            ksl = struct.unpack_from('<i', mv, r)[0]
+                            if ksl <= 0 or r + 4 + ksl > bend or ksl > 256:
+                                r += 1
+                                continue
+                            k = bytes(mv[r+4:r+4+ksl]).decode('utf-8', errors='ignore')
+                            r = r + 4 + ksl
+                            if r + 4 > bend:
+                                break
+                            kv_len = struct.unpack_from('<i', mv, r)[0]
+                            r += 4
+                            if kv_len < 0 or r + kv_len > bend:
+                                # Skip invalid KV
+                                r = min(bend, r + max(0, kv_len))
+                                continue
+                            # Inspect payload
+                            val = read_first_number(mv, r, r + kv_len)
+                            if k == 'WidthInCells' and val is not None and 8 <= val <= 4096:
+                                found_w = val
+                            elif k == 'HeightInCells' and val is not None and 8 <= val <= 4096:
+                                found_h = val
+                            r = r + kv_len
+                        except Exception:
+                            r += 1
+                    if found_w is not None and found_h is not None:
+                        return found_w, found_h
+                    q = bend
+                # Advance p to end of behaviors for this instance
+                p = q
+            # Skip remainder of group payload
+            p = group_start + max(0, data_len)
+            if p > len(body):
+                break
+
+        if found_w is not None and found_h is not None:
+            return found_w, found_h
+        return None
+
+    def _scan_dims_by_label(self, body: bytes) -> Optional[Tuple[int, int]]:
+        """Fallback scan that looks for 'WidthInCells' and 'HeightInCells' labels and
+        extracts the first plausible int32 following each within a sliding window.
+        """
+        import struct
+        if not body:
+            return None
+        mv = memoryview(body)
+        n = len(body)
+
+        def find_label_int(label: bytes, window: int = 4096) -> Optional[int]:
+            start = 0
+            while True:
+                idx = body.find(label, start)
+                if idx == -1:
+                    return None
+                # Scan forward for an int32 within the window
+                scan_start = idx + len(label)
+                scan_end = min(n, scan_start + window)
+                p = scan_start
+                while p + 4 <= scan_end:
+                    try:
+                        v = struct.unpack_from('<i', mv, p)[0]
+                        if 8 <= v <= 4096:
+                            return int(v)
+                    except Exception:
+                        pass
+                    p += 1
+                start = idx + 1
+
+        for wl, hl in ((b"WidthInCells", b"HeightInCells"), (b"widthInCells", b"heightInCells")):
+            w = find_label_int(wl)
+            h = find_label_int(hl)
+            if w is not None and h is not None:
+                return w, h
+        return None
     
     def _parse_save_data(self, file_data: bytes, result: ParseResult) -> Optional[SaveGame]:
         """
@@ -1024,38 +1631,108 @@ class OniSaveParser:
             world.width_in_cells = int(gi.get('WidthInCells', 0) or gi.get('widthInCells', 0) or 0)
             world.height_in_cells = int(gi.get('HeightInCells', 0) or gi.get('heightInCells', 0) or 0)
             
-            # Heuristic fallback: scan for labels and proximate int32 values
+            # Try to find authoritative width/height keys in DECOMPRESSED body
             if world.width_in_cells == 0 or world.height_in_cells == 0:
                 import struct
-                start_pos = reader.get_position()
                 try:
-                    remaining = reader.remaining_bytes()
-                    body = reader.read_bytes(remaining) if remaining > 0 else b""
-                finally:
-                    # Restore position to avoid affecting later sections
-                    reader.seek(start_pos)
+                    # Decompress once and cache
+                    file_bytes: bytes = getattr(self, "_last_file_bytes", b"")
+                    decompressed = self._decompress_body_block(file_bytes) if file_bytes else None
+                except Exception:
+                    decompressed = None
 
-                def find_int_after(label: bytes, default_val: int = 0) -> int:
-                    idx = body.find(label)
-                    if idx == -1:
+                body = decompressed or b""
+
+                # Structured scan through behaviors for authoritative KV entries
+                dims = self._extract_world_dimensions_from_body(body)
+                if dims is not None:
+                    world.width_in_cells, world.height_in_cells = dims
+                # Label-based fallback
+                if world.width_in_cells == 0 or world.height_in_cells == 0:
+                    dims2 = self._scan_dims_by_label(body)
+                    if dims2 is not None:
+                        world.width_in_cells, world.height_in_cells = dims2
+                # Multi-block scan (JSON or KVs in non-KSAV blocks)
+                if (world.width_in_cells == 0 or world.height_in_cells == 0) and file_bytes:
+                    dims3 = self._extract_world_dimensions_from_stream(file_bytes)
+                    if dims3 is not None:
+                        world.width_in_cells, world.height_in_cells = dims3
+
+                # Legacy raw-stream label fallback (pre-decompression), as a last resort
+                if world.width_in_cells == 0 or world.height_in_cells == 0:
+                    try:
+                        start_pos = reader.get_position()
+                        remaining = reader.remaining_bytes()
+                        raw = reader.read_bytes(remaining) if remaining > 0 else b""
+                    finally:
+                        reader.seek(start_pos)
+
+                    import struct
+                    def find_int_after_raw(buf: bytes, label: bytes) -> Optional[int]:
+                        idx = buf.find(label)
+                        if idx == -1:
+                            return None
+                        window = buf[idx: idx + 2048]
+                        for off in range(len(label), max(len(label), len(window) - 4)):
+                            try:
+                                v = struct.unpack_from('<i', window, off)[0]
+                                if 8 <= v <= 16384:
+                                    return int(v)
+                            except Exception:
+                                continue
+                        return None
+
+                    if world.width_in_cells == 0:
+                        w = find_int_after_raw(raw, b"WidthInCells") or find_int_after_raw(raw, b"widthInCells")
+                        if w:
+                            world.width_in_cells = w
+                    if world.height_in_cells == 0:
+                        h = find_int_after_raw(raw, b"HeightInCells") or find_int_after_raw(raw, b"heightInCells")
+                        if h:
+                            world.height_in_cells = h
+
+                # Fallback: scan for labels and proximate int32 values
+                if world.width_in_cells == 0 or world.height_in_cells == 0:
+                    def find_int_after(label: bytes, default_val: int = 0) -> int:
+                        idx = body.find(label)
+                        if idx == -1:
+                            return default_val
+                        window = body[idx: idx + 512]
+                        for offset in range(len(label), max(len(label), len(window) - 4)):
+                            try:
+                                val = struct.unpack_from('<i', window, offset)[0]
+                            except Exception:
+                                continue
+                            if 8 <= val <= 4096:
+                                return int(val)
                         return default_val
-                    window = body[idx: idx + 256]
-                    # look for first plausible little-endian int32 after the label bytes
-                    for offset in range(len(label), max(len(label), len(window) - 4)):
-                        try:
-                            val = struct.unpack_from('<i', window, offset)[0]
-                        except Exception:
-                            continue
-                        # Plausible cell dimensions range
-                        if 8 <= val <= 10000:
-                            return int(val)
-                    return default_val
 
-                if world.width_in_cells == 0:
-                    world.width_in_cells = find_int_after(b"WidthInCells", world.width_in_cells)
-                if world.height_in_cells == 0:
-                    world.height_in_cells = find_int_after(b"HeightInCells", world.height_in_cells)
+                    if world.width_in_cells == 0:
+                        world.width_in_cells = find_int_after(b"WidthInCells", world.width_in_cells)
+                    if world.height_in_cells == 0:
+                        world.height_in_cells = find_int_after(b"HeightInCells", world.height_in_cells)
+
+            # Plausibility note: if dims look unusually large/small, warn but keep values for visibility
+            try:
+                if world.width_in_cells and world.height_in_cells and not (8 <= world.width_in_cells <= 16384 and 8 <= world.height_in_cells <= 16384):
+                    result.add_warning(
+                        f"World dimensions look unusual (w={world.width_in_cells}, h={world.height_in_cells}); verify"
+                    )
+            except Exception:
+                pass
             
+            # Preserve the same decompressed body as world.data for size visibility
+            # without attempting to structurally decode the world.
+            try:
+                file_bytes: bytes = getattr(self, "_last_file_bytes", b"")
+                if file_bytes:
+                    body = self._decompress_body_block(file_bytes) or b""
+                    world.data = body
+                    # Cache for reuse by _parse_sim_data and other helpers
+                    self._cached_sim_body = body
+            except Exception:
+                pass
+
             # Note preservation until template-based parsing is implemented
             result.add_warning("World data preserved as binary (not parsed)")
         except Exception as e:
@@ -1077,14 +1754,25 @@ class OniSaveParser:
         return settings
     
     def _parse_sim_data(self, reader: BinaryReader, result: ParseResult) -> bytes:
-        """Parse simulation data section."""
-        # TODO: Implement sim data parsing
+        """Parse simulation data section.
+
+        Phase 1: Preserve the decompressed main body as the simulation blob
+        for downstream analyses (world grid histogramming, etc.).
+        """
         try:
-            # Simulation data is typically a binary blob
-            # Size would be read from file, then the blob
+            # Prefer cached body if available (set during _parse_world)
+            body = getattr(self, "_cached_sim_body", None)
+            if body is None:
+                file_bytes: bytes = getattr(self, "_last_file_bytes", b"")
+                if not file_bytes:
+                    result.add_warning("Sim data parsing: original file bytes not available")
+                    return b""
+                body = self._decompress_body_block(file_bytes)
+            if not body:
+                result.add_warning("Simulation data decompress failed or not found; preserved as empty")
+                return b""
             result.add_warning("Simulation data preserved as binary")
-            return b""  # Placeholder
-            
+            return body
         except Exception as e:
             result.add_warning(f"Sim data parsing error: {e}")
             return b""

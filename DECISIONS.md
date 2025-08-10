@@ -14,6 +14,41 @@ Each decision follows this format:
 
 ---
 
+## 🧰 Environment & Tooling Constraints
+**Date**: 2025-08-10
+**Context**: CI/dev container restricts system installs; PEP 668 blocks pip writes.
+**Decision**: Document venv-first setup; provide restricted-env fallbacks and scriptable test entrypoints; remove unnecessary `asyncio` dependency; add `pyproject.toml` for tooling.
+**Consequences**: Reliable local setup; tests/examples runnable without admin; standardized formatting.
+
+---
+
+## 🧪 Continuous Integration Setup
+**Date**: 2025-08-10  
+**Context**: Need automated quality gates for PRs and main.  
+**Decision**: Add GitHub Actions CI with Python 3.11/3.12 matrix: install split requirements, run black/isort/flake8, run pytest, and upload `pip freeze` as lock artifact (`requirements/lock-py311.txt`).  
+**Alternatives**: Single-version CI (less coverage), local-only checks (no automation).  
+**Consequences**: Early breakage detection; consistent code quality; artifact available for pinning.
+
+---
+
+## 📦 Requirements Extras Split
+**Date**: 2025-08-10  
+**Context**: Heavy deps (vision/models) not always needed; dev tools separate.  
+**Decision**: Split into `requirements/base.txt`, `requirements/models.txt`, `requirements/vision.txt`, `requirements/dev.txt`; aggregate via root `requirements.txt`.  
+**Alternatives**: Single monolithic file (slower installs), optional extras via setup.py (out of scope).  
+**Consequences**: Faster, targeted installs; simpler CI steps; clearer dependency boundaries.
+
+---
+
+## 🔒 Version Pinning Policy
+**Date**: 2025-08-10  
+**Context**: Ensure reproducible builds after CI green.  
+**Decision**: After CI is green on main, promote the `requirements/lock-py311.txt` artifact to a tracked lock file (e.g., `requirements/locked.txt`) and/or update split files with pinned versions. Trigger via manual step/PR.  
+**Alternatives**: Always pin (less flexibility), never pin (non-reproducible).  
+**Consequences**: Stable builds; controlled updates; clear workflow for dependency changes.
+
+---
+
 ## 🐍 **Language Selection**
 
 **Date**: 2025-08-07 19:50  

@@ -1,24 +1,11 @@
-# Core dependencies
-asyncio
-typing-extensions>=4.0.0
+# Aggregate installer; prefer subset files under requirements/ for CI
+-r requirements/base.txt
 
-# AI/ML libraries
-openai>=1.0.0
-anthropic>=0.7.0
+# Optional providers
+-r requirements/models.txt
 
-# Image processing
-Pillow>=10.0.0
-opencv-python>=4.8.0
+# Optional image/vision deps
+-r requirements/vision.txt
 
-# Development and testing
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-black>=23.0.0
-isort>=5.12.0
-flake8>=6.0.0
-mypy>=1.0.0
-
-# Optional: For advanced features
-# langchain>=0.1.0
-# numpy>=1.24.0
-# pandas>=2.0.0 
+# Dev tools
+-r requirements/dev.txt

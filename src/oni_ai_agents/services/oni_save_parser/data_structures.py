@@ -94,6 +94,23 @@ class SaveGameWorld:
 
 
 @dataclass
+class SaveBlockInfo:
+    """Information about a compressed block found in the save stream."""
+    offset: int
+    header: str  # first up to 10 bytes of the compressed stream, hex-encoded
+    compressed_size: int
+    decompressed_size: int
+    crc32: str  # hex string, lowercase without 0x
+
+
+@dataclass
+class SaveGameMetadata:
+    """Additional metadata extracted from the save stream for diagnostics."""
+    blocks: List[SaveBlockInfo] = field(default_factory=list)
+    ksav_summary: Dict[str, int] = field(default_factory=dict)  # {group_count, total_instances}
+
+
+@dataclass
 class SaveGameSettings:
     """Game settings and configuration."""
     game_settings: Dict[str, Any] = field(default_factory=dict)
@@ -132,6 +149,7 @@ class SaveGame:
     version: SaveGameVersion = field(default_factory=SaveGameVersion)
     game_objects: GameObjectGroups = field(default_factory=GameObjectGroups)
     game_data: SaveGameData = field(default_factory=SaveGameData)
+    metadata: SaveGameMetadata = field(default_factory=SaveGameMetadata)
     
     def get_duplicants(self) -> List[GameObject]:
         """Get all duplicant game objects."""

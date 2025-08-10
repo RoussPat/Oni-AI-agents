@@ -282,4 +282,24 @@ Status: Completed (v0.2)
 - Data contracts v0.1 in `SaveFileDataExtractor` for all sections
 - Test fixtures: a small set of public saves covering edge cases
 
+---
+
+## Tooling, CI, and Developer Experience (DX)
+
+Status: Completed (current iteration)
+- Done:
+  - Introduced split requirements: `requirements/base.txt`, `requirements/models.txt`, `requirements/vision.txt`, `requirements/dev.txt`; aggregate via root `requirements.txt`.
+  - Added GitHub Actions CI (`.github/workflows/ci.yml`) with Python 3.11/3.12 matrix: install deps, run black/isort/flake8, run pytest, and upload pip-freeze lock artifact.
+  - Added dependency pinning workflow (`.github/workflows/pin-deps.yml`) that generates `requirements/locked.txt` on green CI or manual trigger and opens a PR.
+  - Hardened model adapters (OpenAI/Anthropic): no network on initialize, lazy client creation, offline-safe stubs for tests and restricted environments.
+  - Improved examples: `example_agent_flow_demo.py` now runnable offline with built-in fallback agents.
+- Impact:
+  - Reliable CI signal and faster installs via optional extras.
+  - Reproducible builds after merging the lock PR.
+  - Local development works in restricted environments (PEP 668) with documented venv-first setup.
+- Next:
+  - Add pre-commit with black/isort/flake8/mypy.
+  - Gate optional vision tests under a marker to avoid flakiness in CI images without GUI libs.
+  - Promote `requirements/lock-py311.txt` to tracked `requirements/locked.txt` on first green run (PR is automated).
+
 

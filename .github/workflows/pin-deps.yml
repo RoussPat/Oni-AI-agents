@@ -1,0 +1,55 @@
+name: Pin Dependencies
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+jobs:
+  pin:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/models.txt
+          pip install -r requirements/vision.txt
+          pip install -r requirements/dev.txt
+
+      - name: Generate lock file (pip freeze)
+        run: |
+          pip freeze | sed '/^pkg-resources==/d' > requirements/locked.txt
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(deps): pin python dependencies (lock file)"
+          title: "chore(deps): pin python dependencies (lock file)"
+          body: |
+            This PR pins Python dependencies based on a successful CI run.
+
+            - Source: pip freeze on Python 3.11
+            - Output: `requirements/locked.txt`
+            - Regenerate via workflow_dispatch or after a green CI run
+          branch: chore/pin-deps
+          delete-branch: true
+          add-paths: |
+            requirements/locked.txt
+
+

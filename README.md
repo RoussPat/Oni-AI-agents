@@ -29,8 +29,16 @@ This system uses multiple specialized AI agents working together to observe, ana
 git clone <repository-url>
 cd oni_save_parser
 
-# Install dependencies
+# Option A: Use virtualenv (preferred)
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -U pip
 pip install -r requirements.txt
+
+# Option B: Restricted environments (no venv)
+# You can run examples/tests that don't require external packages
+# or install with: python3 -m pip install --break-system-packages -r requirements.txt
+# (not recommended unless you understand the risks)
 
 # Run the basic example
 python examples/example_usage.py
@@ -187,6 +195,11 @@ pytest tests/test_agent.py
 
 # Run with coverage
 pytest --cov=src/oni_ai_agents
+
+# If pytest is not available in restricted envs, run selected tests as scripts:
+python tests/test_save_simple.py
+python tests/test_save_with_agents.py
+python tests/test_real_save_parsing.py
 ```
 
 ## 🔧 **Development**

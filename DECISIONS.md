@@ -14,6 +14,14 @@ Each decision follows this format:
 
 ---
 
+## 🧰 Environment & Tooling Constraints
+**Date**: 2025-08-10
+**Context**: CI/dev container restricts system installs; PEP 668 blocks pip writes.
+**Decision**: Document venv-first setup; provide restricted-env fallbacks and scriptable test entrypoints; remove unnecessary `asyncio` dependency; add `pyproject.toml` for tooling.
+**Consequences**: Reliable local setup; tests/examples runnable without admin; standardized formatting.
+
+---
+
 ## 🐍 **Language Selection**
 
 **Date**: 2025-08-07 19:50  

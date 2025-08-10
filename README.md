@@ -35,6 +35,15 @@ python3 -m venv .venv
 pip install -U pip
 pip install -r requirements.txt
 
+# Or install subsets
+# Core only
+pip install -r requirements/base.txt
+# + models (OpenAI/Anthropic adapters)
+pip install -r requirements/models.txt
+# + vision (Pillow/OpenCV)
+pip install -r requirements/vision.txt
+# + dev tools (pytest, black, isort, flake8, mypy)
+pip install -r requirements/dev.txt
 # Option B: Restricted environments (no venv)
 # You can run examples/tests that don't require external packages
 # or install with: python3 -m pip install --break-system-packages -r requirements.txt

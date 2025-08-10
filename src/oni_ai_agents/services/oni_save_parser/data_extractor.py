@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from .data_structures import SaveGame
-from .world_grid_histogrammer import compute_histograms, compute_breathable_percent
+from .world_grid_histogrammer import compute_breathable_percent, compute_histograms
 
 
 def _safe_get_game_info_value(game_info: Dict[str, Any], key: str, default: Any = None) -> Any:

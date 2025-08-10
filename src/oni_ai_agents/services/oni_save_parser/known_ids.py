@@ -6,10 +6,9 @@ Falls back to embedded subsets if research files are not present.
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import List, Set
-
 
 FALLBACK_TRAIT_IDS: Set[str] = {
     'SmallBladder','Narcolepsy','Flatulence','Anemic','MouthBreather','BingeEater','StressVomiter',

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from .data_structures import SaveBlockInfo, SaveGameMetadata
 from .compressed_blocks import CompressedBlocksScanner
+from .data_structures import SaveBlockInfo, SaveGameMetadata
 from .ksav_index import KSAVGroupCounter
 
 

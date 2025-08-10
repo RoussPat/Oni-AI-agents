@@ -5,45 +5,53 @@ Main parser class for reading Oxygen Not Included save files.
 Based on analysis of RoboPhred's JavaScript implementation.
 """
 
-import time
 import logging
+import time
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .binary_reader import BinaryReader
+from .compressed_blocks import CompressedBlocksScanner
+from .data_structures import (
+    GameObjectGroups,
+    ParseResult,
+    SaveBlockInfo,
+    SaveGame,
+    SaveGameData,
+    SaveGameHeader,
+    SaveGameMetadata,
+    SaveGameSettings,
+    SaveGameVersion,
+    SaveGameWorld,
+    TypeTemplate,
+    TypeTemplates,
+)
+from .duplicant_decoder import DuplicantDecoder
+from .header_reader import SaveHeaderReader
+from .known_ids import load_known_effect_ids, load_known_trait_ids
+from .ksav_index import KSAVGroupCounter
+from .metadata_builder import MetadataBuilder
 from .world_grid_histogrammer import (
-    compute_histograms,
     compute_breathable_percent,
+    compute_histograms,
     compute_structures_histogram,
     compute_temperature_histogram_from_body,
 )
-from .data_structures import (
-    SaveGame, SaveGameHeader, SaveGameVersion, TypeTemplates, TypeTemplate,
-    SaveGameWorld, SaveGameSettings, GameObjectGroups, SaveGameData,
-    SaveBlockInfo, SaveGameMetadata,
-    ParseResult
-)
-from .known_ids import load_known_trait_ids, load_known_effect_ids
-from .compressed_blocks import CompressedBlocksScanner
-from .ksav_index import KSAVGroupCounter
-from .duplicant_decoder import DuplicantDecoder
-from .metadata_builder import MetadataBuilder
-from .header_reader import SaveHeaderReader
 
 
 class OniSaveParser:
     """
     Parser for ONI save files.
-    
+
     Reads and parses Oxygen Not Included save files into structured Python objects.
     Based on the format analysis from RoboPhred's JavaScript parser.
     """
-    
+
     # Supported save file versions
     SUPPORTED_MAJOR_VERSION = 7
     MIN_MINOR_VERSION = 11  # Based on analyzed parsers
     MAX_MINOR_VERSION = 36  # Updated to latest observed version
-    
+
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         # Curated ID sets (loaded from research when available, else fallbacks)
@@ -57,12 +65,15 @@ class OniSaveParser:
         self._header_reader = SaveHeaderReader()
 
     # -------------------- Minion structured helpers --------------------
-    def _parse_minion_identity(self, mv: memoryview, beh_start: int, beh_end: int) -> Dict[str, Any]:
+    def _parse_minion_identity(
+        self, mv: memoryview, beh_start: int, beh_end: int
+    ) -> Dict[str, Any]:
         """Best-effort decode of MinionIdentity behavior payload.
 
         Returns a dict with keys: name (str|None), gender (str|None), arrival_time (int|None).
         """
         import struct as _st
+
         identity: Dict[str, Any] = {}
         q = beh_start
         found_name = False
@@ -75,44 +86,44 @@ class OniSaveParser:
                 continue
             if q2 + 4 > beh_end:
                 break
-            kv_len = _st.unpack_from('<i', mv, q2)[0]
+            kv_len = _st.unpack_from("<i", mv, q2)[0]
             q2 += 4
             if kv_len < 0 or q2 + kv_len > beh_end:
                 q = q2
                 continue
-            if key in ('name', 'nameStringKey', 'gender', 'genderStringKey'):
+            if key in ("name", "nameStringKey", "gender", "genderStringKey"):
                 try:
-                    payload = bytes(mv[q2:q2+kv_len])
+                    payload = bytes(mv[q2 : q2 + kv_len])
                     if len(payload) >= 4:
-                        slen = _st.unpack_from('<i', payload, 0)[0]
+                        slen = _st.unpack_from("<i", payload, 0)[0]
                         if 0 <= slen <= len(payload) - 4:
-                            s = payload[4:4+slen].decode('utf-8', errors='ignore')
-                            if key == 'name' and s and self._is_plausible_name(s):
-                                identity['name'] = s
+                            s = payload[4 : 4 + slen].decode("utf-8", errors="ignore")
+                            if key == "name" and s and self._is_plausible_name(s):
+                                identity["name"] = s
                                 found_name = True
-                            elif key == 'gender' and s in ("MALE", "FEMALE", "NB"):
-                                identity['gender'] = s
+                            elif key == "gender" and s in ("MALE", "FEMALE", "NB"):
+                                identity["gender"] = s
                                 found_gender = True
                 except Exception:
                     pass
-            elif key == 'arrivalTime':
+            elif key == "arrivalTime":
                 try:
                     if kv_len >= 4:
-                        at32 = _st.unpack_from('<i', mv, q2)[0]
+                        at32 = _st.unpack_from("<i", mv, q2)[0]
                         if 0 <= at32 < 10**10:
-                            identity['arrival_time'] = int(at32)
-                    if 'arrival_time' not in identity and kv_len >= 8:
-                        at64 = _st.unpack_from('<q', mv, q2)[0]
+                            identity["arrival_time"] = int(at32)
+                    if "arrival_time" not in identity and kv_len >= 8:
+                        at64 = _st.unpack_from("<q", mv, q2)[0]
                         if 0 <= at64 < 10**12:
-                            identity['arrival_time'] = int(at64)
-                    if 'arrival_time' not in identity and kv_len >= 4:
-                        af32 = _st.unpack_from('<f', mv, q2)[0]
+                            identity["arrival_time"] = int(at64)
+                    if "arrival_time" not in identity and kv_len >= 4:
+                        af32 = _st.unpack_from("<f", mv, q2)[0]
                         if 0.0 <= af32 < 10**10:
-                            identity['arrival_time'] = int(af32)
-                    if 'arrival_time' not in identity and kv_len >= 8:
-                        af64 = _st.unpack_from('<d', mv, q2)[0]
+                            identity["arrival_time"] = int(af32)
+                    if "arrival_time" not in identity and kv_len >= 8:
+                        af64 = _st.unpack_from("<d", mv, q2)[0]
                         if 0.0 <= af64 < 10**12:
-                            identity['arrival_time'] = int(af64)
+                            identity["arrival_time"] = int(af64)
                 except Exception:
                     pass
             q = q2 + kv_len
@@ -121,21 +132,21 @@ class OniSaveParser:
         if not found_name:
             for s in self._scan_klei_strings(mv, beh_start, beh_end, max_strings=32):
                 if self._is_plausible_name(s):
-                    identity['name'] = s
+                    identity["name"] = s
                     break
-        if 'arrival_time' not in identity:
+        if "arrival_time" not in identity:
             try:
                 off = beh_start
                 _nm, off = self._read_klei_string(mv, off, beh_end)
                 _nm_key, off = self._read_klei_string(mv, off, beh_end)
                 gender_s, off = self._read_klei_string(mv, off, beh_end)
                 _gender_key, off = self._read_klei_string(mv, off, beh_end)
-                if gender_s in ("MALE", "FEMALE", "NB") and 'gender' not in identity:
-                    identity['gender'] = gender_s
+                if gender_s in ("MALE", "FEMALE", "NB") and "gender" not in identity:
+                    identity["gender"] = gender_s
                 if off + 4 <= beh_end:
-                    at = _st.unpack_from('<i', mv, off)[0]
+                    at = _st.unpack_from("<i", mv, off)[0]
                     if at >= 0:
-                        identity['arrival_time'] = int(at)
+                        identity["arrival_time"] = int(at)
             except Exception:
                 pass
         return identity
@@ -146,28 +157,54 @@ class OniSaveParser:
         Returns keys: currentRole (str|None), aptitudes (dict) if found, mastered_roles (list) if found.
         """
         import struct as _st
+
         result: Dict[str, Any] = {}
         aptitudes: Dict[str, int] = {}
 
         def map_group(raw: str) -> str:
             raw_l = raw.lower()
             alias = {
-                'mining': 'Mining', 'building': 'Building', 'farming': 'Farming', 'ranching': 'Ranching',
-                'researching': 'Research', 'research': 'Research', 'cooking': 'Cooking', 'arting': 'Art',
-                'art': 'Art', 'hauling': 'Hauling', 'suits': 'Suits', 'technicals': 'Technicals',
-                'engineering': 'Engineering', 'basekeeping': 'Basekeeping', 'astronauting': 'Management',
-                'medicine': 'MedicalAid', 'rocketpiloting': 'Management', 'medicalaid': 'MedicalAid',
+                "mining": "Mining",
+                "building": "Building",
+                "farming": "Farming",
+                "ranching": "Ranching",
+                "researching": "Research",
+                "research": "Research",
+                "cooking": "Cooking",
+                "arting": "Art",
+                "art": "Art",
+                "hauling": "Hauling",
+                "suits": "Suits",
+                "technicals": "Technicals",
+                "engineering": "Engineering",
+                "basekeeping": "Basekeeping",
+                "astronauting": "Management",
+                "medicine": "MedicalAid",
+                "rocketpiloting": "Management",
+                "medicalaid": "MedicalAid",
             }.get(raw_l)
             if alias:
                 return alias
             for pref, mapped in [
-                ('build', 'Building'), ('resear', 'Research'), ('resea', 'Research'),
-                ('min', 'Mining'), ('farm', 'Farming'), ('ranch', 'Ranching'),
-                ('operat', 'Operating'), ('engin', 'Engineering'), ('medica', 'MedicalAid'),
-                ('med', 'MedicalAid'), ('cook', 'Cooking'), ('art', 'Art'),
-                ('haul', 'Hauling'), ('tidy', 'Basekeeping'), ('suit', 'Suits'),
-                ('tech', 'Technicals'), ('pyrotech', 'Technicals'), ('astron', 'Management'),
-                ('manage', 'Management'),
+                ("build", "Building"),
+                ("resear", "Research"),
+                ("resea", "Research"),
+                ("min", "Mining"),
+                ("farm", "Farming"),
+                ("ranch", "Ranching"),
+                ("operat", "Operating"),
+                ("engin", "Engineering"),
+                ("medica", "MedicalAid"),
+                ("med", "MedicalAid"),
+                ("cook", "Cooking"),
+                ("art", "Art"),
+                ("haul", "Hauling"),
+                ("tidy", "Basekeeping"),
+                ("suit", "Suits"),
+                ("tech", "Technicals"),
+                ("pyrotech", "Technicals"),
+                ("astron", "Management"),
+                ("manage", "Management"),
             ]:
                 if raw_l.startswith(pref):
                     return mapped
@@ -181,46 +218,51 @@ class OniSaveParser:
                 continue
             if q2 + 4 > beh_end:
                 break
-            kv_len = _st.unpack_from('<i', mv, q2)[0]
+            kv_len = _st.unpack_from("<i", mv, q2)[0]
             q2 += 4
             if kv_len < 0 or q2 + kv_len > beh_end:
                 q = q2
                 continue
-            if key == 'currentRole':
+            if key == "currentRole":
                 try:
-                    payload = bytes(mv[q2:q2+kv_len])
+                    payload = bytes(mv[q2 : q2 + kv_len])
                     if len(payload) >= 4:
-                        slen = _st.unpack_from('<i', payload, 0)[0]
+                        slen = _st.unpack_from("<i", payload, 0)[0]
                         if 0 <= slen <= len(payload) - 4:
-                            s = payload[4:4+slen].decode('utf-8', errors='ignore')
+                            s = payload[4 : 4 + slen].decode("utf-8", errors="ignore")
                             if s:
-                                result['currentRole'] = s
+                                result["currentRole"] = s
                 except Exception:
                     pass
-            elif key == 'AptitudeBySkillGroup':
+            elif key == "AptitudeBySkillGroup":
                 try:
-                    pay = memoryview(mv[q2:q2+kv_len])
+                    pay = memoryview(mv[q2 : q2 + kv_len])
                     rp = 0
                     cnt = None
                     if rp + 4 <= len(pay):
-                        cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                        cnt = _st.unpack_from("<i", pay, rp)[0]
+                        rp += 4
                     if cnt is not None and 0 <= cnt <= 128:
                         for _ in range(cnt):
                             if rp + 4 > len(pay):
                                 break
-                            glen = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                            glen = _st.unpack_from("<i", pay, rp)[0]
+                            rp += 4
                             if glen < 0 or rp + glen > len(pay):
                                 break
-                            graw = bytes(pay[rp:rp+glen]).decode('utf-8', errors='ignore'); rp += glen
+                            graw = bytes(pay[rp : rp + glen]).decode("utf-8", errors="ignore")
+                            rp += glen
                             lvl = None
                             if rp + 4 <= len(pay):
-                                cand = _st.unpack_from('<i', pay, rp)[0]
+                                cand = _st.unpack_from("<i", pay, rp)[0]
                                 if 0 <= cand <= 10:
-                                    lvl = int(cand); rp += 4
+                                    lvl = int(cand)
+                                    rp += 4
                             if lvl is None and rp + 4 <= len(pay):
-                                fv = _st.unpack_from('<f', pay, rp)[0]
+                                fv = _st.unpack_from("<f", pay, rp)[0]
                                 if 0.0 <= fv <= 10.0:
-                                    lvl = int(round(fv)); rp += 4
+                                    lvl = int(round(fv))
+                                    rp += 4
                             if lvl is None:
                                 rp = min(len(pay), rp + 4)
                                 continue
@@ -231,56 +273,64 @@ class OniSaveParser:
                                     aptitudes[group_key] = lvl
                 except Exception:
                     pass
-            elif key == 'MasteryByRoleID':
+            elif key == "MasteryByRoleID":
                 try:
-                    pay = memoryview(mv[q2:q2+kv_len])
+                    pay = memoryview(mv[q2 : q2 + kv_len])
                     rp = 0
                     mastered: List[str] = []
                     cnt = None
                     if rp + 4 <= len(pay):
-                        cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                        cnt = _st.unpack_from("<i", pay, rp)[0]
+                        rp += 4
                     if cnt is not None and 0 <= cnt <= 256:
                         for _ in range(cnt):
                             if rp + 4 > len(pay):
                                 break
-                            glen = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                            glen = _st.unpack_from("<i", pay, rp)[0]
+                            rp += 4
                             if glen < 0 or rp + glen > len(pay):
                                 break
-                            role_id = bytes(pay[rp:rp+glen]).decode('utf-8', errors='ignore'); rp += glen
+                            role_id = bytes(pay[rp : rp + glen]).decode("utf-8", errors="ignore")
+                            rp += glen
                             mastered_flag = None
                             if rp + 1 <= len(pay):
-                                mastered_flag = pay[rp] != 0; rp += 1
+                                mastered_flag = pay[rp] != 0
+                                rp += 1
                             if mastered_flag is None and rp + 4 <= len(pay):
-                                mastered_flag = _st.unpack_from('<i', pay, rp)[0] != 0; rp += 4
+                                mastered_flag = _st.unpack_from("<i", pay, rp)[0] != 0
+                                rp += 4
                             if mastered_flag and role_id:
                                 mastered.append(role_id)
                     if mastered:
-                        result['mastered_roles'] = mastered
+                        result["mastered_roles"] = mastered
                 except Exception:
                     pass
             q = q2 + kv_len
 
         if aptitudes:
-            result['aptitudes'] = aptitudes
+            result["aptitudes"] = aptitudes
         return result
 
-    def _parse_minion_modifiers(self, mv: memoryview, beh_start: int, beh_end: int) -> Dict[str, float]:
+    def _parse_minion_modifiers(
+        self, mv: memoryview, beh_start: int, beh_end: int
+    ) -> Dict[str, float]:
         """Decode MinionModifiers/Modifiers for vitals (best-effort floats)."""
         import struct as _st
+
         vitals: Dict[str, float] = {}
         label_map = {
-            'Calories': ('calories', 0.0, 1e9),
-            'Health': ('health', 0.0, 1000.0),
-            'Stress': ('stress', 0.0, 100.0),
-            'Stamina': ('stamina', 0.0, 100.0),
-            'Decor': ('decor', -1000.0, 1000.0),
-            'Temperature': ('temperature', 0.0, 1000.0),
-            'Breath': ('breath', 0.0, 100.0),
-            'Bladder': ('bladder', 0.0, 100.0),
-            'ImmuneLevel': ('immune_level', 0.0, 100.0),
-            'Toxicity': ('toxicity', 0.0, 100.0),
-            'RadiationBalance': ('radiation_balance', -10000.0, 10000.0),
-            'QualityOfLife': ('morale', -1000.0, 1000.0),
+            "Calories": ("calories", 0.0, 1e9),
+            "Health": ("health", 0.0, 1000.0),
+            "Stress": ("stress", 0.0, 100.0),
+            "Stamina": ("stamina", 0.0, 100.0),
+            "Decor": ("decor", -1000.0, 1000.0),
+            "Temperature": ("temperature", 0.0, 1000.0),
+            "Breath": ("breath", 0.0, 100.0),
+            "Bladder": ("bladder", 0.0, 100.0),
+            "ImmuneLevel": ("immune_level", 0.0, 100.0),
+            "Toxicity": ("toxicity", 0.0, 100.0),
+            "RadiationBalance": ("radiation_balance", -10000.0, 10000.0),
+            "QualityOfLife": ("morale", -1000.0, 1000.0),
         }
         q = beh_start
         while q + 8 <= beh_end:
@@ -290,7 +340,7 @@ class OniSaveParser:
                 continue
             if q2 + 4 > beh_end:
                 break
-            c_len = _st.unpack_from('<i', mv, q2)[0]
+            c_len = _st.unpack_from("<i", mv, q2)[0]
             q2 += 4
             if c_len < 0 or q2 + c_len > beh_end:
                 q = q2
@@ -302,37 +352,37 @@ class OniSaveParser:
                     vitals[key] = float(val)
             q = q2 + c_len
         return vitals
-    
+
     def parse_save_file(self, file_path: Path) -> ParseResult:
         """
         Parse an ONI save file.
-        
+
         Args:
             file_path: Path to the .sav file
-            
+
         Returns:
             ParseResult containing the parsed save game or error information
         """
         start_time = time.time()
         result = ParseResult()
-        
+
         try:
             if not file_path.exists():
                 result.error_message = f"Save file not found: {file_path}"
                 return result
-            
+
             self.logger.info(f"Parsing ONI save file: {file_path}")
-            
+
             # Read file data
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 file_data = f.read()
-            
+
             # Preserve raw file bytes for downstream parsing helpers
             self._last_file_bytes = file_data
 
             # Parse the save file
             save_game = self._parse_save_data(file_data, result)
-            
+
             if save_game:
                 result.success = True
                 result.save_game = save_game
@@ -349,9 +399,12 @@ class OniSaveParser:
                     # Backward-compatible raw duplicant entries expected by tests
                     raw = self.extract_minion_details(file_path)
                     result.entities["duplicants"] = raw or []
+
                     # Also compute canonical structured list
                     def _canon(m: Dict[str, Any]) -> Dict[str, Any]:
-                        vitals: Dict[str, Any] = m.get("vitals", {}) if isinstance(m.get("vitals"), dict) else {}
+                        vitals: Dict[str, Any] = (
+                            m.get("vitals", {}) if isinstance(m.get("vitals"), dict) else {}
+                        )
                         identity = {
                             "name": m.get("name"),
                             "gender": m.get("gender"),
@@ -383,6 +436,7 @@ class OniSaveParser:
                             "effects": m.get("effects", []) or [],
                             "position": position,
                         }
+
                     result.entities["duplicants_canonical"] = [_canon(m) for m in (raw or [])]
                 except Exception as _:
                     # Non-fatal if entity extraction fails
@@ -391,21 +445,25 @@ class OniSaveParser:
                 try:
                     world_width = int(save_game.world.width_in_cells or 0)
                     world_height = int(save_game.world.height_in_cells or 0)
-                    cell_count = world_width * world_height if world_width > 0 and world_height > 0 else 0
-                    histograms = compute_histograms(save_game.sim_data or b"", world_width, world_height)
+                    cell_count = (
+                        world_width * world_height if world_width > 0 and world_height > 0 else 0
+                    )
+                    histograms = compute_histograms(
+                        save_game.sim_data or b"", world_width, world_height
+                    )
                     breathable_percent = compute_breathable_percent(histograms, cell_count)
                     # Add structures histogram from object group counts
                     # Ensure object_group_counts is available prior to building histogram
-                    ogc = result.entities.get('object_group_counts')
+                    ogc = result.entities.get("object_group_counts")
                     if ogc is None:
                         # If not present yet, compute quick counts now from KSAV body
                         try:
                             counts = self._extract_object_group_counts_from_body(ksav_body or b"")
                             if counts:
-                                result.entities['object_group_counts'] = counts
+                                result.entities["object_group_counts"] = counts
                         except Exception:
                             pass
-                    ogc = result.entities.get('object_group_counts', {})
+                    ogc = result.entities.get("object_group_counts", {})
                     structures_hist = compute_structures_histogram(ogc, top_n=25)
 
                     # Temperature buckets (best-effort from behaviors)
@@ -433,7 +491,7 @@ class OniSaveParser:
                     }
                     result.entities["world_grid_summary"] = world_grid_summary
                     # Fallback: derive approximate world span from object positions if dims are 0
-                    if (world_width == 0 or world_height == 0):
+                    if world_width == 0 or world_height == 0:
                         body = getattr(self, "_cached_sim_body", None)
                         if body is None:
                             fb: bytes = getattr(self, "_last_file_bytes", b"")
@@ -448,23 +506,30 @@ class OniSaveParser:
                             world_grid_summary["approx_span_origin"] = {"x": min_x, "y": min_y}
                 except Exception:
                     pass
-                
-                self.logger.info(f"Successfully parsed save file in {result.parse_time_seconds:.2f}s")
+
+                self.logger.info(
+                    f"Successfully parsed save file in {result.parse_time_seconds:.2f}s"
+                )
                 self.logger.info(f"Save version: {save_game.version}")
                 self.logger.info(f"Cycles: {save_game.header.num_cycles}")
                 self.logger.info(f"Duplicants: {save_game.header.num_duplicants}")
                 # Derive quick object group counts from decompressed body (best-effort)
-                    try:
-                        counts = self._extract_object_group_counts_from_body(ksav_body or b"")
-                        if counts:
-                            result.entities.setdefault('object_group_counts', counts)
-                    except Exception:
-                        pass
-            
+                try:
+                    body = getattr(self, "_cached_sim_body", None)
+                    if body is None:
+                        fb: bytes = getattr(self, "_last_file_bytes", b"")
+                        if fb:
+                            body = self._decompress_body_block(fb)
+                    counts = self._extract_object_group_counts_from_body(body or b"")
+                    if counts:
+                        result.entities.setdefault("object_group_counts", counts)
+                except Exception:
+                    pass
+
         except Exception as e:
             self.logger.error(f"Error parsing save file: {e}")
             result.error_message = str(e)
-        
+
         return result
 
     def extract_minion_positions(self, file_path: Path) -> List[Dict[str, float]]:
@@ -541,94 +606,23 @@ class OniSaveParser:
         Ensures `ksav_summary` always contains integer keys `group_count`
         and `total_instances` even when KSAV is not found (defaults to 0).
         """
-        metadata = SaveGameMetadata()
-        # Initialize ksav_summary keys so consumers can rely on presence
-        metadata.ksav_summary = {"group_count": 0, "total_instances": 0}
-        if not file_bytes:
-            return metadata
-        try:
-            import zlib, binascii
-            start_after_header, _ = self._parse_header_raw(file_bytes)
-            search = file_bytes[start_after_header:]
-            seen = set()
-            for sig in (b"\x78\x9c", b"\x78\xda", b"\x78\x01"):
-                idx = 0
-                while True:
-                    pos = search.find(sig, idx)
-                    if pos == -1:
-                        break
-                    abs_pos = start_after_header + pos
-                    if abs_pos in seen:
-                        idx = pos + 1
-                        continue
-                    seen.add(abs_pos)
-                    header_preview = file_bytes[abs_pos:abs_pos+10].hex()
-                    try:
-                        decompressed = zlib.decompress(file_bytes[abs_pos:])
-                        crc_hex = format(binascii.crc32(decompressed) & 0xFFFFFFFF, '08x')
-                        # We do not know exact compressed_size; store remaining as an upper-bound estimate
-                        comp_size = len(file_bytes) - abs_pos
-                        decomp_size = len(decompressed)
-                        metadata.blocks.append(SaveBlockInfo(
-                            offset=abs_pos,
-                            header=header_preview,
-                            compressed_size=comp_size,
-                            decompressed_size=decomp_size,
-                            crc32=crc_hex,
-                        ))
-                    except Exception:
-                        pass
-                    idx = pos + 1
-
-            # KSAV group/instance summary from cached body
-            body = getattr(self, "_cached_sim_body", None)
-            if body is None:
-                body = self._decompress_body_block(file_bytes) or b""
-            if body:
-                import struct
-                mv = memoryview(body)
-                pos = body.find(b'KSAV')
-                if pos != -1 and pos + 12 <= len(body):
-                    p = pos + 4
-                    _maj = struct.unpack_from('<i', mv, p)[0]; p += 4
-                    _min = struct.unpack_from('<i', mv, p)[0]; p += 4
-                    group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
-                    total_instances = 0
-                    for _ in range(max(0, group_count)):
-                        if p + 4 > len(body):
-                            break
-                        name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
-                        if name_len < 0 or p + name_len > len(body):
-                            break
-                        p += name_len
-                        if p + 8 > len(body):
-                            break
-                        instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
-                        data_length = struct.unpack_from('<i', mv, p)[0]; p += 4
-                        total_instances += int(instance_count)
-                        p = p + max(0, data_length)
-                        if p > len(body):
-                            break
-                    metadata.ksav_summary = {
-                        "group_count": int(group_count),
-                        "total_instances": int(total_instances),
-                    }
-        except Exception:
-            pass
-        return metadata
+        # Delegate to metadata builder
+        body = getattr(self, "_cached_sim_body", None)
+        return self._metadata_builder.build(file_bytes, body)
 
     def _extract_world_dimensions_from_stream(self, file_bytes: bytes) -> Optional[Tuple[int, int]]:
         """Search all decompressed blocks for world dimension info via JSON or KV scans."""
         import json
+
         for blob in self._iter_decompressed_blocks(file_bytes):
             # Skip KSAV blob; it contains object groups, not top-level world dims
-            if b'KSAV' in blob[:4096]:
+            if b"KSAV" in blob[:4096]:
                 continue
             # JSON path
             try:
-                text = blob.decode('utf-8')
+                text = blob.decode("utf-8")
                 js = text.lstrip()
-                if js.startswith('{'):
+                if js.startswith("{"):
                     obj = json.loads(text)
                     # Recursive search
                     stack = [obj]
@@ -641,7 +635,9 @@ class OniSaveParser:
                                 kl = str(k)
                                 if kl in ("WidthInCells", "widthInCells") and isinstance(v, int):
                                     width = v
-                                elif kl in ("HeightInCells", "heightInCells") and isinstance(v, int):
+                                elif kl in ("HeightInCells", "heightInCells") and isinstance(
+                                    v, int
+                                ):
                                     height = v
                                 elif isinstance(v, (dict, list)):
                                     stack.append(v)
@@ -658,20 +654,23 @@ class OniSaveParser:
                 return w, h
         return None
 
-    def _scan_klei_strings(self, mv: memoryview, start: int, end: int, max_strings: int = 32) -> List[str]:
+    def _scan_klei_strings(
+        self, mv: memoryview, start: int, end: int, max_strings: int = 32
+    ) -> List[str]:
         """Scan a memory block for Klei strings (int32 length + bytes)."""
         import struct
+
         strings: List[str] = []
         p = start
         scanned = 0
         while p + 4 <= end and scanned < max_strings:
             try:
-                l = struct.unpack_from('<i', mv, p)[0]
+                l = struct.unpack_from("<i", mv, p)[0]
                 if l < 0 or l > (end - p - 4):
                     p += 1
                     continue
                 p += 4
-                s = bytes(mv[p:p+l]).decode('utf-8', errors='ignore')
+                s = bytes(mv[p : p + l]).decode("utf-8", errors="ignore")
                 p += l
                 if s:
                     strings.append(s)
@@ -680,13 +679,21 @@ class OniSaveParser:
                 p += 1
         return strings
 
-    def _scan_first_int32(self, mv: memoryview, start: int, end: int, min_val: int = -2**31, max_val: int = 2**31-1) -> Optional[int]:
+    def _scan_first_int32(
+        self,
+        mv: memoryview,
+        start: int,
+        end: int,
+        min_val: int = -(2**31),
+        max_val: int = 2**31 - 1,
+    ) -> Optional[int]:
         """Find first plausible int32 value in range in block."""
         import struct
+
         p = start
         while p + 4 <= end:
             try:
-                v = struct.unpack_from('<i', mv, p)[0]
+                v = struct.unpack_from("<i", mv, p)[0]
                 if min_val <= v <= max_val:
                     return int(v)
             except Exception:
@@ -694,13 +701,17 @@ class OniSaveParser:
             p += 1
         return None
 
-    def _scan_first_float32(self, mv: memoryview, start: int, end: int, min_val: float, max_val: float) -> Optional[float]:
+    def _scan_first_float32(
+        self, mv: memoryview, start: int, end: int, min_val: float, max_val: float
+    ) -> Optional[float]:
         """Find first plausible float32 value in range in block."""
-        import struct, math
+        import math
+        import struct
+
         p = start
         while p + 4 <= end:
             try:
-                v = struct.unpack_from('<f', mv, p)[0]
+                v = struct.unpack_from("<f", mv, p)[0]
                 if math.isfinite(v) and min_val <= v <= max_val:
                     return float(v)
             except Exception:
@@ -708,14 +719,18 @@ class OniSaveParser:
             p += 1
         return None
 
-    def _scan_best_float32(self, mv: memoryview, start: int, end: int, min_val: float, max_val: float) -> Optional[float]:
+    def _scan_best_float32(
+        self, mv: memoryview, start: int, end: int, min_val: float, max_val: float
+    ) -> Optional[float]:
         """Scan a block and return the most plausible float32 in range (last match)."""
-        import struct, math
+        import math
+        import struct
+
         best = None
         p = start
         while p + 4 <= end:
             try:
-                v = struct.unpack_from('<f', mv, p)[0]
+                v = struct.unpack_from("<f", mv, p)[0]
                 if math.isfinite(v) and min_val <= v <= max_val:
                     best = float(v)
             except Exception:
@@ -726,13 +741,14 @@ class OniSaveParser:
     def _read_klei_string(self, mv: memoryview, off: int, end: int) -> Tuple[Optional[str], int]:
         """Read a single Klei string (length-prefixed) at offset, return (str, new_off)."""
         import struct
+
         if off + 4 > end:
             return None, off
-        l = struct.unpack_from('<i', mv, off)[0]
+        l = struct.unpack_from("<i", mv, off)[0]
         off += 4
         if l < 0 or off + l > end:
             return None, off
-        s = bytes(mv[off:off+l]).decode('utf-8', errors='ignore')
+        s = bytes(mv[off : off + l]).decode("utf-8", errors="ignore")
         off += l
         return s, off
 
@@ -745,125 +761,154 @@ class OniSaveParser:
         if any(c in s for c in ("+", ":", "/", "\\", ".", "[", "]")):
             return False
         import re
+
         return re.fullmatch(r"[A-Za-z][A-Za-z '\-]*", s) is not None
 
     def _extract_minion_details_from_body(self, body: bytes) -> List[Dict[str, Any]]:
         """Extract minion positions and identity data from decompressed body."""
         import struct
+
         mv = memoryview(body)
-        ksav = body.find(b'KSAV')
+        ksav = body.find(b"KSAV")
         if ksav == -1:
             return []
         p = ksav + 4
         # Version major/minor
         if p + 8 > len(body):
             return []
-        _ver_major = struct.unpack_from('<i', mv, p)[0]; p += 4
-        _ver_minor = struct.unpack_from('<i', mv, p)[0]; p += 4
+        _ver_major = struct.unpack_from("<i", mv, p)[0]
+        p += 4
+        _ver_minor = struct.unpack_from("<i", mv, p)[0]
+        p += 4
         # Group count
         if p + 4 > len(body):
             return []
         try:
-            group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+            group_count = struct.unpack_from("<i", mv, p)[0]
+            p += 4
         except Exception:
             return []
         minions: List[Dict[str, Any]] = []
         for _ in range(max(0, group_count)):
             if p + 4 > len(body):
                 break
-            name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+            name_len = struct.unpack_from("<i", mv, p)[0]
+            p += 4
             if name_len < 0 or p + name_len > len(body):
                 break
-            name = bytes(mv[p:p+name_len]).decode('utf-8', errors='ignore'); p += name_len
+            name = bytes(mv[p : p + name_len]).decode("utf-8", errors="ignore")
+            p += name_len
             if p + 8 > len(body):
                 break
-            instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
-            data_length = struct.unpack_from('<i', mv, p)[0]; p += 4
+            instance_count = struct.unpack_from("<i", mv, p)[0]
+            p += 4
+            data_length = struct.unpack_from("<i", mv, p)[0]
+            p += 4
             group_data_start = p
-            if name == 'Minion' and instance_count > 0:
+            if name == "Minion" and instance_count > 0:
                 for _i in range(instance_count):
-                    if p + (3+4+3)*4 + 1 + 4 > len(body):
+                    if p + (3 + 4 + 3) * 4 + 1 + 4 > len(body):
                         break
-                    x, y, z = struct.unpack_from('<fff', mv, p); p += 12
+                    x, y, z = struct.unpack_from("<fff", mv, p)
+                    p += 12
                     p += 16  # rotation
                     p += 12  # scale
-                    p += 1   # folder
-                    behavior_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                    p += 1  # folder
+                    behavior_count = struct.unpack_from("<i", mv, p)[0]
+                    p += 4
                     minion_info: Dict[str, Any] = {"x": float(x), "y": float(y), "z": float(z)}
                     # Parse behaviors to extract identity info
                     for _b in range(max(0, behavior_count)):
                         if p + 4 > len(body):
                             break
-                        beh_name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+                        beh_name_len = struct.unpack_from("<i", mv, p)[0]
+                        p += 4
                         if beh_name_len < 0 or p + beh_name_len > len(body):
                             break
-                        beh_name = bytes(mv[p:p+beh_name_len]).decode('utf-8', errors='ignore'); p += beh_name_len
+                        beh_name = bytes(mv[p : p + beh_name_len]).decode("utf-8", errors="ignore")
+                        p += beh_name_len
                         if p + 4 > len(body):
                             break
-                        beh_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+                        beh_len = struct.unpack_from("<i", mv, p)[0]
+                        p += 4
                         beh_start = p
                         beh_end = p + max(0, beh_len)
                         if beh_end > len(body):
                             break
-                        if beh_name == 'MinionIdentity':
+                        if beh_name == "MinionIdentity":
                             try:
                                 ident = self._parse_minion_identity(mv, beh_start, beh_end)
-                                if ident.get('name'):
-                                    minion_info['name'] = ident['name']
-                                if ident.get('gender'):
-                                    minion_info['gender'] = ident['gender']
-                                if ident.get('arrival_time') is not None:
-                                    minion_info['arrival_time'] = int(ident['arrival_time'])
+                                if ident.get("name"):
+                                    minion_info["name"] = ident["name"]
+                                if ident.get("gender"):
+                                    minion_info["gender"] = ident["gender"]
+                                if ident.get("arrival_time") is not None:
+                                    minion_info["arrival_time"] = int(ident["arrival_time"])
                             except Exception:
                                 pass
-                        elif beh_name in ('MinionResume',):
+                        elif beh_name in ("MinionResume",):
                             try:
                                 resume = self._parse_minion_resume(mv, beh_start, beh_end)
-                                if resume.get('currentRole'):
-                                    minion_info.setdefault('job', resume['currentRole'])
-                                if resume.get('aptitudes'):
-                                    minion_info.setdefault('aptitudes', resume['aptitudes'])
-                                if resume.get('mastered_roles'):
-                                    minion_info.setdefault('mastered_roles', resume['mastered_roles'])
+                                if resume.get("currentRole"):
+                                    minion_info.setdefault("job", resume["currentRole"])
+                                if resume.get("aptitudes"):
+                                    minion_info.setdefault("aptitudes", resume["aptitudes"])
+                                if resume.get("mastered_roles"):
+                                    minion_info.setdefault(
+                                        "mastered_roles", resume["mastered_roles"]
+                                    )
                             except Exception:
                                 pass
                             # Secondary pass: scan strings and raw payload to derive aptitudes like Building1, Hauling2, Mining3
                             try:
                                 import re
+
                                 # Normalization helpers
                                 def map_group(raw: str) -> str:
                                     raw_l = raw.lower()
                                     alias = {
-                                        'mining': 'Mining',
-                                        'building': 'Building',
-                                        'farming': 'Farming',
-                                        'ranching': 'Ranching',
-                                        'researching': 'Research',
-                                        'research': 'Research',
-                                        'cooking': 'Cooking',
-                                        'arting': 'Art',
-                                        'art': 'Art',
-                                        'hauling': 'Hauling',
-                                        'suits': 'Suits',
-                                        'technicals': 'Technicals',
-                                        'engineering': 'Engineering',
-                                        'basekeeping': 'Basekeeping',
-                                        'astronauting': 'Management',
-                                        'medicine': 'MedicalAid',
-                                        'rocketpiloting': 'Management',
-                                        'medicalaid': 'MedicalAid',
+                                        "mining": "Mining",
+                                        "building": "Building",
+                                        "farming": "Farming",
+                                        "ranching": "Ranching",
+                                        "researching": "Research",
+                                        "research": "Research",
+                                        "cooking": "Cooking",
+                                        "arting": "Art",
+                                        "art": "Art",
+                                        "hauling": "Hauling",
+                                        "suits": "Suits",
+                                        "technicals": "Technicals",
+                                        "engineering": "Engineering",
+                                        "basekeeping": "Basekeeping",
+                                        "astronauting": "Management",
+                                        "medicine": "MedicalAid",
+                                        "rocketpiloting": "Management",
+                                        "medicalaid": "MedicalAid",
                                     }.get(raw_l)
                                     if alias:
                                         return alias
                                     # Prefix mapping for truncated tokens
                                     for pref, mapped in [
-                                        ('build', 'Building'), ('resear', 'Research'), ('resea', 'Research'),
-                                        ('min', 'Mining'), ('farm', 'Farming'), ('ranch', 'Ranching'),
-                                        ('operat', 'Operating'), ('engin', 'Engineering'), ('medica', 'MedicalAid'),
-                                        ('med', 'MedicalAid'), ('cook', 'Cooking'), ('art', 'Art'),
-                                        ('haul', 'Hauling'), ('tidy', 'Basekeeping'), ('suit', 'Suits'),
-                                        ('tech', 'Technicals'), ('pyrotech', 'Technicals'), ('astron', 'Management'),
-                                        ('manage', 'Management'),
+                                        ("build", "Building"),
+                                        ("resear", "Research"),
+                                        ("resea", "Research"),
+                                        ("min", "Mining"),
+                                        ("farm", "Farming"),
+                                        ("ranch", "Ranching"),
+                                        ("operat", "Operating"),
+                                        ("engin", "Engineering"),
+                                        ("medica", "MedicalAid"),
+                                        ("med", "MedicalAid"),
+                                        ("cook", "Cooking"),
+                                        ("art", "Art"),
+                                        ("haul", "Hauling"),
+                                        ("tidy", "Basekeeping"),
+                                        ("suit", "Suits"),
+                                        ("tech", "Technicals"),
+                                        ("pyrotech", "Technicals"),
+                                        ("astron", "Management"),
+                                        ("manage", "Management"),
                                     ]:
                                         if raw_l.startswith(pref):
                                             return mapped
@@ -872,132 +917,187 @@ class OniSaveParser:
 
                                 # Allowed max levels per group (based on ONI tiers)
                                 max_level = {
-                                    'Mining': 3, 'Building': 3, 'Farming': 3, 'Ranching': 2,
-                                    'Research': 3, 'Cooking': 2, 'Art': 3, 'Hauling': 2,
-                                    'Suits': 1, 'Technicals': 2, 'Engineering': 1,
-                                    'Basekeeping': 2, 'Management': 2, 'MedicalAid': 3,
+                                    "Mining": 3,
+                                    "Building": 3,
+                                    "Farming": 3,
+                                    "Ranching": 2,
+                                    "Research": 3,
+                                    "Cooking": 2,
+                                    "Art": 3,
+                                    "Hauling": 2,
+                                    "Suits": 1,
+                                    "Technicals": 2,
+                                    "Engineering": 1,
+                                    "Basekeeping": 2,
+                                    "Management": 2,
+                                    "MedicalAid": 3,
                                 }
 
                                 # Pass 1: Klei string scan
-                                for s in self._scan_klei_strings(mv, beh_start, beh_end, max_strings=256):
+                                for s in self._scan_klei_strings(
+                                    mv, beh_start, beh_end, max_strings=256
+                                ):
                                     m = re.fullmatch(r"([A-Za-z]+)(\d+)", s)
                                     if m:
                                         group_raw = m.group(1)
                                         level = int(m.group(2))
                                         group_key = map_group(group_raw)
-                                        if group_key and group_key in max_level and 1 <= level <= max_level[group_key]:
+                                        if (
+                                            group_key
+                                            and group_key in max_level
+                                            and 1 <= level <= max_level[group_key]
+                                        ):
                                             prev = aptitudes.get(group_key, 0)
                                             if level > prev:
                                                 aptitudes[group_key] = level
                                 # Pass 2: Raw payload scan (handles fused tokens)
                                 payload = bytes(mv[beh_start:beh_end])
-                                text = payload.decode('utf-8', errors='ignore')
+                                text = payload.decode("utf-8", errors="ignore")
                                 for m in re.finditer(r"\b([A-Za-z]+)(\d+)\b", text):
                                     group_raw = m.group(1)
                                     level = int(m.group(2))
                                     group_key = map_group(group_raw)
-                                    if group_key and group_key in max_level and 1 <= level <= max_level[group_key]:
+                                    if (
+                                        group_key
+                                        and group_key in max_level
+                                        and 1 <= level <= max_level[group_key]
+                                    ):
                                         prev = aptitudes.get(group_key, 0)
                                         if level > prev:
                                             aptitudes[group_key] = level
                                 if aptitudes:
-                                    minion_info.setdefault('aptitudes', aptitudes)
+                                    minion_info.setdefault("aptitudes", aptitudes)
                             except Exception:
                                 pass
                             # Fallback: derive from hat tokens present in MinionResume payload
-                            if 'job' not in minion_info or minion_info.get('job') in (None, '', 'NoRole'):
+                            if "job" not in minion_info or minion_info.get("job") in (
+                                None,
+                                "",
+                                "NoRole",
+                            ):
                                 try:
                                     payload = bytes(mv[beh_start:beh_end])
-                                    idx = payload.find(b'hat_role_')
+                                    idx = payload.find(b"hat_role_")
                                     if idx != -1:
-                                        j = idx + len(b'hat_role_')
+                                        j = idx + len(b"hat_role_")
                                         group_bytes = bytearray()
-                                        while j < len(payload) and (65 <= payload[j] <= 90 or 97 <= payload[j] <= 122):
-                                            group_bytes.append(payload[j]); j += 1
-                                        group = group_bytes.decode('ascii', errors='ignore').lower()
+                                        while j < len(payload) and (
+                                            65 <= payload[j] <= 90 or 97 <= payload[j] <= 122
+                                        ):
+                                            group_bytes.append(payload[j])
+                                            j += 1
+                                        group = group_bytes.decode("ascii", errors="ignore").lower()
                                         exact_map = {
-                                            'building': 'Builder', 'mining': 'Miner', 'digging': 'Miner',
-                                            'research': 'Researcher', 'cooking': 'Cook', 'cook': 'Cook',
-                                            'farming': 'Farmer', 'farmer': 'Farmer', 'ranching': 'Rancher',
-                                            'doctor': 'Doctor', 'medical': 'Doctor', 'artist': 'Artist',
-                                            'operating': 'Operator', 'operator': 'Operator', 'engineering': 'Engineer',
-                                            'engineer': 'Engineer', 'hauling': 'Courier', 'supply': 'Courier',
-                                            'tidying': 'Sweeper', 'pyrotechnics': 'Pyrotechnician'
+                                            "building": "Builder",
+                                            "mining": "Miner",
+                                            "digging": "Miner",
+                                            "research": "Researcher",
+                                            "cooking": "Cook",
+                                            "cook": "Cook",
+                                            "farming": "Farmer",
+                                            "farmer": "Farmer",
+                                            "ranching": "Rancher",
+                                            "doctor": "Doctor",
+                                            "medical": "Doctor",
+                                            "artist": "Artist",
+                                            "operating": "Operator",
+                                            "operator": "Operator",
+                                            "engineering": "Engineer",
+                                            "engineer": "Engineer",
+                                            "hauling": "Courier",
+                                            "supply": "Courier",
+                                            "tidying": "Sweeper",
+                                            "pyrotechnics": "Pyrotechnician",
                                         }
                                         base = exact_map.get(group)
                                         if not base:
                                             for pref, role_name in [
-                                                ('build', 'Builder'), ('resear', 'Researcher'), ('resea', 'Researcher'), ('min', 'Miner'),
-                                                ('farm', 'Farmer'), ('ranch', 'Rancher'), ('operat', 'Operator'),
-                                                ('engin', 'Engineer'), ('med', 'Doctor'), ('cook', 'Cook'),
-                                                ('art', 'Artist'), ('haul', 'Courier'), ('suppl', 'Courier'),
-                                                ('tidy', 'Sweeper'), ('pyrotech', 'Pyrotechnician'), ('ranc', 'Rancher')
+                                                ("build", "Builder"),
+                                                ("resear", "Researcher"),
+                                                ("resea", "Researcher"),
+                                                ("min", "Miner"),
+                                                ("farm", "Farmer"),
+                                                ("ranch", "Rancher"),
+                                                ("operat", "Operator"),
+                                                ("engin", "Engineer"),
+                                                ("med", "Doctor"),
+                                                ("cook", "Cook"),
+                                                ("art", "Artist"),
+                                                ("haul", "Courier"),
+                                                ("suppl", "Courier"),
+                                                ("tidy", "Sweeper"),
+                                                ("pyrotech", "Pyrotechnician"),
+                                                ("ranc", "Rancher"),
                                             ]:
                                                 if group.startswith(pref):
                                                     base = role_name
                                                     break
                                         if base:
-                                            minion_info.setdefault('job', base)
+                                            minion_info.setdefault("job", base)
                                 except Exception:
                                     pass
-                        elif beh_name in ('Accessorizer', 'WearableAccessorizer'):
+                        elif beh_name in ("Accessorizer", "WearableAccessorizer"):
                             # Infer role from worn hat strings like 'hat_role_building3'
                             try:
-                                strings = self._scan_klei_strings(mv, beh_start, beh_end, max_strings=128)
-                                hat_tokens = [s for s in strings if 'hat_role_' in s]
+                                strings = self._scan_klei_strings(
+                                    mv, beh_start, beh_end, max_strings=128
+                                )
+                                hat_tokens = [s for s in strings if "hat_role_" in s]
+
                                 def map_hat_to_role(token: str) -> str:
                                     # Extract segment after 'hat_role_'
                                     try:
-                                        seg = token.split('hat_role_', 1)[1]
+                                        seg = token.split("hat_role_", 1)[1]
                                     except Exception:
-                                        return ''
+                                        return ""
                                     # Normalize, pick leading alpha+digits
                                     import re
+
                                     m = re.match(r"([a-zA-Z]+)(\d*)", seg)
                                     if not m:
-                                        return ''
+                                        return ""
                                     group = m.group(1).lower()
-                                    tier = m.group(2) or ''
+                                    tier = m.group(2) or ""
                                     # Map by exact key or by common prefixes to handle truncated tokens
                                     exact_map = {
-                                        'building': 'Builder',
-                                        'mining': 'Miner',
-                                        'digging': 'Miner',
-                                        'research': 'Researcher',
-                                        'cooking': 'Cook',
-                                        'cook': 'Cook',
-                                        'farming': 'Farmer',
-                                        'farmer': 'Farmer',
-                                        'ranching': 'Rancher',
-                                        'doctor': 'Doctor',
-                                        'medical': 'Doctor',
-                                        'artist': 'Artist',
-                                        'operating': 'Operator',
-                                        'operator': 'Operator',
-                                        'engineering': 'Engineer',
-                                        'engineer': 'Engineer',
-                                        'hauling': 'Courier',
-                                        'supply': 'Courier',
-                                        'tidying': 'Sweeper',
+                                        "building": "Builder",
+                                        "mining": "Miner",
+                                        "digging": "Miner",
+                                        "research": "Researcher",
+                                        "cooking": "Cook",
+                                        "cook": "Cook",
+                                        "farming": "Farmer",
+                                        "farmer": "Farmer",
+                                        "ranching": "Rancher",
+                                        "doctor": "Doctor",
+                                        "medical": "Doctor",
+                                        "artist": "Artist",
+                                        "operating": "Operator",
+                                        "operator": "Operator",
+                                        "engineering": "Engineer",
+                                        "engineer": "Engineer",
+                                        "hauling": "Courier",
+                                        "supply": "Courier",
+                                        "tidying": "Sweeper",
                                     }
                                     base = exact_map.get(group)
                                     if not base:
                                         # Prefix-based mapping for truncated tokens (e.g., 'build', 'resea', 'min')
                                         prefix_map = [
-                                            ('build', 'Builder'),
-                                            ('resear', 'Researcher'),
-                                            ('min', 'Miner'),
-                                            ('farm', 'Farmer'),
-                                            ('ranch', 'Rancher'),
-                                            ('operat', 'Operator'),
-                                            ('engin', 'Engineer'),
-                                            ('med', 'Doctor'),
-                                            ('cook', 'Cook'),
-                                            ('art', 'Artist'),
-                                            ('haul', 'Courier'),
-                                            ('suppl', 'Courier'),
-                                            ('tidy', 'Sweeper'),
-                                            ('pyrotech', 'Pyrotechnician'),
+                                            ("build", "Builder"),
+                                            ("resear", "Researcher"),
+                                            ("min", "Miner"),
+                                            ("farm", "Farmer"),
+                                            ("ranch", "Rancher"),
+                                            ("operat", "Operator"),
+                                            ("engin", "Engineer"),
+                                            ("med", "Doctor"),
+                                            ("cook", "Cook"),
+                                            ("art", "Artist"),
+                                            ("haul", "Courier"),
+                                            ("suppl", "Courier"),
+                                            ("tidy", "Sweeper"),
+                                            ("pyrotech", "Pyrotechnician"),
                                         ]
                                         for pref, role_name in prefix_map:
                                             if group.startswith(pref):
@@ -1006,22 +1106,25 @@ class OniSaveParser:
                                     if not base:
                                         base = group.capitalize()
                                     return f"{base}{(' T' + tier) if tier else ''}"
+
                                 for t in hat_tokens:
                                     mapped = map_hat_to_role(t)
                                     if mapped:
-                                        minion_info.setdefault('job', mapped)
+                                        minion_info.setdefault("job", mapped)
                                         break
                             except Exception:
                                 pass
-                        elif beh_name in ('Klei.AI.Traits', 'Traits'):
+                        elif beh_name in ("Klei.AI.Traits", "Traits"):
                             # Extract trait identifiers (structured parse with fallback)
                             try:
                                 import struct as _st
+
                                 traits: List[str] = []
                                 pay = memoryview(mv[beh_start:beh_end])
                                 rp = 0
                                 if rp + 4 <= len(pay):
-                                    cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                    cnt = _st.unpack_from("<i", pay, rp)[0]
+                                    rp += 4
                                 else:
                                     cnt = -1
                                 parsed = 0
@@ -1029,85 +1132,104 @@ class OniSaveParser:
                                     while parsed < cnt and rp < len(pay):
                                         if rp + 4 > len(pay):
                                             break
-                                        sl = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                        sl = _st.unpack_from("<i", pay, rp)[0]
+                                        rp += 4
                                         if sl < 0 or rp + sl > len(pay):
                                             break
-                                        s = bytes(pay[rp:rp+sl]).decode('utf-8', errors='ignore'); rp += sl
+                                        s = bytes(pay[rp : rp + sl]).decode(
+                                            "utf-8", errors="ignore"
+                                        )
+                                        rp += sl
                                         if s:
                                             traits.append(s)
                                         parsed += 1
                                 # Skip generic string scan fallback for traits to avoid unreadable tokens
                                 if traits:
                                     # Normalize and keep only known trait ids
-                                    alias = {'DiversLung': 'DeeperDiversLungs'}
+                                    alias = {"DiversLung": "DeeperDiversLungs"}
                                     norm = [alias.get(t, t) for t in traits]
                                     known_only = [t for t in norm if t in self._KNOWN_TRAIT_IDS]
                                     if known_only:
-                                        minion_info.setdefault('traits', sorted(list(dict.fromkeys(known_only))))
+                                        minion_info.setdefault(
+                                            "traits", sorted(list(dict.fromkeys(known_only)))
+                                        )
                             except Exception:
                                 pass
-                        elif beh_name in ('Klei.AI.Effects', 'Effects'):
+                        elif beh_name in ("Klei.AI.Effects", "Effects"):
                             # Extract active effects/statuses (structured parse with fallback)
                             try:
-                                import struct as _st, re
+                                import re
+                                import struct as _st
+
                                 effects: List[str] = []
                                 pay = memoryview(mv[beh_start:beh_end])
                                 # The above had a typo; correct variable name
                             except Exception:
                                 pass
                             try:
-                                import struct as _st, re
+                                import re
+                                import struct as _st
+
                                 effects: List[str] = []
                                 pay = memoryview(mv[beh_start:beh_end])
                                 rp = 0
                                 cnt = None
                                 if rp + 4 <= len(pay):
-                                    cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                    cnt = _st.unpack_from("<i", pay, rp)[0]
+                                    rp += 4
                                 parsed = 0
                                 if cnt is not None and 0 <= cnt <= 512:
                                     while parsed < cnt and rp < len(pay):
                                         if rp + 4 > len(pay):
                                             break
-                                        sl = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                                        sl = _st.unpack_from("<i", pay, rp)[0]
+                                        rp += 4
                                         if sl < 0 or rp + sl > len(pay):
                                             break
-                                        s = bytes(pay[rp:rp+sl]).decode('utf-8', errors='ignore'); rp += sl
+                                        s = bytes(pay[rp : rp + sl]).decode(
+                                            "utf-8", errors="ignore"
+                                        )
+                                        rp += sl
                                         if s:
                                             effects.append(s)
                                         parsed += 1
                                 if not effects:
-                                    strings = self._scan_klei_strings(mv, beh_start, beh_end, max_strings=256)
+                                    strings = self._scan_klei_strings(
+                                        mv, beh_start, beh_end, max_strings=256
+                                    )
                                     for s in strings:
                                         if not s or len(s) > 64:
                                             continue
-                                        if any(ch in s for ch in (' ', '/', '\\')):
+                                        if any(ch in s for ch in (" ", "/", "\\")):
                                             continue
-                                        if '_' in s or re.fullmatch(r"[A-Z][A-Za-z]+", s):
+                                        if "_" in s or re.fullmatch(r"[A-Z][A-Za-z]+", s):
                                             effects.append(s)
                                 if effects:
                                     known = [e for e in effects if e in self._KNOWN_EFFECT_IDS]
                                     if known:
-                                        minion_info.setdefault('effects', sorted(list(dict.fromkeys(known))))
+                                        minion_info.setdefault(
+                                            "effects", sorted(list(dict.fromkeys(known)))
+                                        )
                                     else:
                                         # Prefer empty effects list over unreadable placeholders
-                                        minion_info.setdefault('effects', [])
+                                        minion_info.setdefault("effects", [])
                             except Exception:
                                 pass
-                        elif beh_name in ('MinionModifiers', 'Modifiers'):
+                        elif beh_name in ("MinionModifiers", "Modifiers"):
                             try:
                                 vit = self._parse_minion_modifiers(mv, beh_start, beh_end)
                                 if vit:
-                                    minion_info.setdefault('vitals', {}).update(vit)
+                                    minion_info.setdefault("vitals", {}).update(vit)
                             except Exception:
                                 pass
                         # Skip to end of behavior block
                         p = beh_end
                     # Ensure defaults for required fields
-                    minion_info.setdefault('arrival_time', 0)
-                    minion_info.setdefault('job', 'NoRole')
+                    minion_info.setdefault("arrival_time", 0)
+                    minion_info.setdefault("job", "NoRole")
                     # Always provide list fields
-                    minion_info.setdefault('traits', [])
-                    minion_info.setdefault('effects', [])
+                    minion_info.setdefault("traits", [])
+                    minion_info.setdefault("effects", [])
                     minions.append(minion_info)
             else:
                 # Skip group payload
@@ -1116,7 +1238,9 @@ class OniSaveParser:
                     break
         return minions
 
-    def _extract_object_positions_from_body(self, body: bytes, per_group_limit: int = 50) -> Dict[str, List[Dict[str, Any]]]:
+    def _extract_object_positions_from_body(
+        self, body: bytes, per_group_limit: int = 50
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """Best-effort extraction of object instance positions (and optional temperature) by group.
 
         This uses the same KSAV group traversal as duplicants, decoding the common
@@ -1124,39 +1248,47 @@ class OniSaveParser:
         a simple scan for plausible temperature values is attempted.
         """
         import struct
+
         positions_by_group: Dict[str, List[Dict[str, Any]]] = {}
 
         if not body:
             return positions_by_group
 
         mv = memoryview(body)
-        ksav = body.find(b'KSAV')
+        ksav = body.find(b"KSAV")
         if ksav == -1:
             return positions_by_group
         p = ksav + 4
         if p + 8 > len(body):
             return positions_by_group
-        _ver_major = struct.unpack_from('<i', mv, p)[0]; p += 4
-        _ver_minor = struct.unpack_from('<i', mv, p)[0]; p += 4
+        _ver_major = struct.unpack_from("<i", mv, p)[0]
+        p += 4
+        _ver_minor = struct.unpack_from("<i", mv, p)[0]
+        p += 4
         if p + 4 > len(body):
             return positions_by_group
         try:
-            group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+            group_count = struct.unpack_from("<i", mv, p)[0]
+            p += 4
         except Exception:
             return positions_by_group
 
         for _ in range(max(0, group_count)):
             if p + 4 > len(body):
                 break
-            name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+            name_len = struct.unpack_from("<i", mv, p)[0]
+            p += 4
             if name_len < 0 or p + name_len > len(body):
                 break
-            group_name = bytes(mv[p:p+name_len]).decode('utf-8', errors='ignore'); p += name_len
+            group_name = bytes(mv[p : p + name_len]).decode("utf-8", errors="ignore")
+            p += name_len
             if p + 8 > len(body):
                 break
             try:
-                instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
-                data_length = struct.unpack_from('<i', mv, p)[0]; p += 4
+                instance_count = struct.unpack_from("<i", mv, p)[0]
+                p += 4
+                data_length = struct.unpack_from("<i", mv, p)[0]
+                p += 4
             except Exception:
                 break
             group_start = p
@@ -1164,10 +1296,11 @@ class OniSaveParser:
             collected: List[Dict[str, Any]] = []
             for _i in range(max(0, instance_count)):
                 # Ensure transform and header are present
-                if p + (3*4) + 16 + 12 + 1 + 4 > len(body):
+                if p + (3 * 4) + 16 + 12 + 1 + 4 > len(body):
                     break
                 try:
-                    x, y, z = struct.unpack_from('<fff', mv, p); p += 12
+                    x, y, z = struct.unpack_from("<fff", mv, p)
+                    p += 12
                 except Exception:
                     break
                 # Skip rotation (quaternion), scale
@@ -1177,7 +1310,8 @@ class OniSaveParser:
                 p += 1
                 # Behavior count
                 try:
-                    behavior_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                    behavior_count = struct.unpack_from("<i", mv, p)[0]
+                    p += 4
                 except Exception:
                     break
 
@@ -1187,19 +1321,27 @@ class OniSaveParser:
                 for _b in range(max(0, behavior_count)):
                     if beh_p + 4 > len(body):
                         break
-                    beh_name_len = struct.unpack_from('<i', mv, beh_p)[0]; beh_p += 4
+                    beh_name_len = struct.unpack_from("<i", mv, beh_p)[0]
+                    beh_p += 4
                     if beh_name_len < 0 or beh_name_len > len(body) - beh_p:
                         break
-                    beh_name = bytes(mv[beh_p:beh_p+beh_name_len]).decode('utf-8', errors='ignore'); beh_p += beh_name_len
+                    beh_name = bytes(mv[beh_p : beh_p + beh_name_len]).decode(
+                        "utf-8", errors="ignore"
+                    )
+                    beh_p += beh_name_len
                     if beh_p + 4 > len(body):
                         break
-                    beh_len = struct.unpack_from('<i', mv, beh_p)[0]; beh_p += 4
+                    beh_len = struct.unpack_from("<i", mv, beh_p)[0]
+                    beh_p += 4
                     beh_start = beh_p
                     beh_end = beh_p + max(0, beh_len)
                     if beh_end > len(body):
                         break
                     # Heuristic: if behavior likely carries thermal data, scan for plausible temperatures
-                    if beh_name in ("PrimaryElement", "Modifiers", "Building", "SimCellOccupier") and "temperature" not in entry:
+                    if (
+                        beh_name in ("PrimaryElement", "Modifiers", "Building", "SimCellOccupier")
+                        and "temperature" not in entry
+                    ):
                         tval = self._scan_best_float32(mv, beh_start, beh_end, 0.0, 1000.0)
                         if tval is not None:
                             entry["temperature"] = float(tval)
@@ -1218,37 +1360,46 @@ class OniSaveParser:
 
         return positions_by_group
 
-    def _compute_object_bounds_from_body(self, body: bytes) -> Optional[Tuple[float, float, float, float]]:
+    def _compute_object_bounds_from_body(
+        self, body: bytes
+    ) -> Optional[Tuple[float, float, float, float]]:
         """Compute bounding box (min_x, min_y, max_x, max_y) across all object instances.
 
         Best-effort traversal of KSAV groups to read instance transforms and
         accumulate bounds without retaining per-instance data.
         """
         import struct
+
         if not body:
             return None
         mv = memoryview(body)
-        ksav = body.find(b'KSAV')
+        ksav = body.find(b"KSAV")
         if ksav == -1:
             return None
         p = ksav + 4
         if p + 8 > len(body):
             return None
-        _ = struct.unpack_from('<i', mv, p)[0]; p += 4  # major
-        _ = struct.unpack_from('<i', mv, p)[0]; p += 4  # minor
+        _ = struct.unpack_from("<i", mv, p)[0]
+        p += 4  # major
+        _ = struct.unpack_from("<i", mv, p)[0]
+        p += 4  # minor
         if p + 4 > len(body):
             return None
         try:
-            group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+            group_count = struct.unpack_from("<i", mv, p)[0]
+            p += 4
         except Exception:
             return None
 
-        min_x = float('inf'); min_y = float('inf')
-        max_x = float('-inf'); max_y = float('-inf')
+        min_x = float("inf")
+        min_y = float("inf")
+        max_x = float("-inf")
+        max_y = float("-inf")
         for _ in range(max(0, group_count)):
             if p + 4 > len(body):
                 break
-            name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+            name_len = struct.unpack_from("<i", mv, p)[0]
+            p += 4
             if name_len < 0 or p + name_len > len(body):
                 break
             # group_name not needed; skip
@@ -1256,8 +1407,10 @@ class OniSaveParser:
             if p + 8 > len(body):
                 break
             try:
-                instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
-                data_length = struct.unpack_from('<i', mv, p)[0]; p += 4
+                instance_count = struct.unpack_from("<i", mv, p)[0]
+                p += 4
+                data_length = struct.unpack_from("<i", mv, p)[0]
+                p += 4
             except Exception:
                 break
             group_start = p
@@ -1265,7 +1418,8 @@ class OniSaveParser:
                 if p + 12 > len(body):
                     break
                 try:
-                    x, y, _z = struct.unpack_from('<fff', mv, p); p += 12
+                    x, y, _z = struct.unpack_from("<fff", mv, p)
+                    p += 12
                     # Skip rotation (16), scale (12), folder (1), behavior_count (4)
                     p += 16 + 12 + 1 + 4
                     # Skip behaviors by reading their lengths
@@ -1275,10 +1429,14 @@ class OniSaveParser:
                 except Exception:
                     break
                 # Update bounds
-                if x < min_x: min_x = x
-                if y < min_y: min_y = y
-                if x > max_x: max_x = x
-                if y > max_y: max_y = y
+                if x < min_x:
+                    min_x = x
+                if y < min_y:
+                    min_y = y
+                if x > max_x:
+                    max_x = x
+                if y > max_y:
+                    max_y = y
                 # Behaviors: move p over each behavior block using local pointer
                 # Because we already skipped behavior_count, we cannot know count without reading it.
                 # To keep this robust, fall back to scanning strings for next instance marker is complex;
@@ -1292,35 +1450,38 @@ class OniSaveParser:
             if p > len(body):
                 break
 
-        if min_x == float('inf'):
+        if min_x == float("inf"):
             return None
         return (min_x, min_y, max_x, max_y)
 
-    def _find_kv_int_in_body(self, body: bytes, key_name: str, *, min_val: int = 1, max_val: int = 10000) -> Optional[int]:
+    def _find_kv_int_in_body(
+        self, body: bytes, key_name: str, *, min_val: int = 1, max_val: int = 10000
+    ) -> Optional[int]:
         """Scan decompressed body for a Klei key/value where key is `key_name` and value is an int.
 
         Pattern assumed: [keyStr][kv_len:int32][payload_bytes], where payload contains an int32.
         We validate value is between [min_val, max_val]. Returns first match.
         """
         import struct
+
         if not body:
             return None
         mv = memoryview(body)
         i = 0
-        key_bytes = key_name.encode('utf-8')
+        key_bytes = key_name.encode("utf-8")
         n = len(body)
         while i + 4 < n:
             try:
                 # Attempt to read a Klei string at offset i
                 # Read length
-                sl = struct.unpack_from('<i', mv, i)[0]
+                sl = struct.unpack_from("<i", mv, i)[0]
                 if sl <= 0 or sl > 256:
                     i += 1
                     continue
                 if i + 4 + sl > n:
                     i += 1
                     continue
-                s = bytes(mv[i+4:i+4+sl])
+                s = bytes(mv[i + 4 : i + 4 + sl])
                 # Move past string
                 j = i + 4 + sl
                 # Must match desired key
@@ -1330,7 +1491,7 @@ class OniSaveParser:
                 # Next should be kv_len
                 if j + 4 > n:
                     return None
-                kv_len = struct.unpack_from('<i', mv, j)[0]
+                kv_len = struct.unpack_from("<i", mv, j)[0]
                 j += 4
                 if kv_len < 4 or j + kv_len > n:
                     # Not a plausible kv block
@@ -1338,14 +1499,14 @@ class OniSaveParser:
                     continue
                 # Try read int32 at payload start
                 try:
-                    v = struct.unpack_from('<i', mv, j)[0]
+                    v = struct.unpack_from("<i", mv, j)[0]
                     if min_val <= v <= max_val:
                         return int(v)
                 except Exception:
                     pass
                 # Also try little-endian 32-bit float cast to int if plausible
                 try:
-                    fv = struct.unpack_from('<f', mv, j)[0]
+                    fv = struct.unpack_from("<f", mv, j)[0]
                     if 0.0 <= fv <= float(max_val):
                         vi = int(round(fv))
                         if min_val <= vi <= max_val:
@@ -1365,19 +1526,23 @@ class OniSaveParser:
         Returns (width, height) when both are found and plausible.
         """
         import struct
+
         if not body:
             return None
         mv = memoryview(body)
-        ksav = body.find(b'KSAV')
+        ksav = body.find(b"KSAV")
         if ksav == -1:
             return None
         p = ksav + 4
         if p + 12 > len(body):
             return None
-        _maj = struct.unpack_from('<i', mv, p)[0]; p += 4
-        _min = struct.unpack_from('<i', mv, p)[0]; p += 4
+        _maj = struct.unpack_from("<i", mv, p)[0]
+        p += 4
+        _min = struct.unpack_from("<i", mv, p)[0]
+        p += 4
         try:
-            group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+            group_count = struct.unpack_from("<i", mv, p)[0]
+            p += 4
         except Exception:
             return None
         found_w: Optional[int] = None
@@ -1386,14 +1551,14 @@ class OniSaveParser:
         def read_first_number(pay_mv: memoryview, off: int, end: int) -> Optional[int]:
             try:
                 if off + 4 <= end:
-                    v = struct.unpack_from('<i', pay_mv, off)[0]
+                    v = struct.unpack_from("<i", pay_mv, off)[0]
                     if 0 <= v <= 10000:
                         return int(v)
             except Exception:
                 pass
             try:
                 if off + 4 <= end:
-                    fv = struct.unpack_from('<f', pay_mv, off)[0]
+                    fv = struct.unpack_from("<f", pay_mv, off)[0]
                     if 0.0 <= fv <= 10000.0:
                         return int(round(fv))
             except Exception:
@@ -1403,15 +1568,19 @@ class OniSaveParser:
         for _ in range(max(0, group_count)):
             if p + 4 > len(body):
                 break
-            name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+            name_len = struct.unpack_from("<i", mv, p)[0]
+            p += 4
             if name_len < 0 or p + name_len > len(body):
                 break
-            _group_name = bytes(mv[p:p+name_len]).decode('utf-8', errors='ignore'); p += name_len
+            _group_name = bytes(mv[p : p + name_len]).decode("utf-8", errors="ignore")
+            p += name_len
             if p + 8 > len(body):
                 break
             try:
-                instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
-                data_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+                instance_count = struct.unpack_from("<i", mv, p)[0]
+                p += 4
+                data_len = struct.unpack_from("<i", mv, p)[0]
+                p += 4
             except Exception:
                 break
             group_start = p
@@ -1422,7 +1591,8 @@ class OniSaveParser:
                 p += 12 + 16 + 12 + 1
                 # Behavior count
                 try:
-                    bcount = struct.unpack_from('<i', mv, p)[0]; p += 4
+                    bcount = struct.unpack_from("<i", mv, p)[0]
+                    p += 4
                 except Exception:
                     break
                 # Iterate behaviors
@@ -1430,13 +1600,16 @@ class OniSaveParser:
                 for _b in range(max(0, bcount)):
                     if q + 4 > len(body):
                         break
-                    blen = struct.unpack_from('<i', mv, q)[0]; q += 4
+                    blen = struct.unpack_from("<i", mv, q)[0]
+                    q += 4
                     if blen < 0 or q + blen > len(body):
                         break
-                    bname = bytes(mv[q:q+blen]).decode('utf-8', errors='ignore'); q += blen
+                    bname = bytes(mv[q : q + blen]).decode("utf-8", errors="ignore")
+                    q += blen
                     if q + 4 > len(body):
                         break
-                    plen = struct.unpack_from('<i', mv, q)[0]; q += 4
+                    plen = struct.unpack_from("<i", mv, q)[0]
+                    q += 4
                     bstart = q
                     bend = q + max(0, plen)
                     if bend > len(body):
@@ -1448,15 +1621,15 @@ class OniSaveParser:
                         try:
                             if r + 4 > bend:
                                 break
-                            ksl = struct.unpack_from('<i', mv, r)[0]
+                            ksl = struct.unpack_from("<i", mv, r)[0]
                             if ksl <= 0 or r + 4 + ksl > bend or ksl > 256:
                                 r += 1
                                 continue
-                            k = bytes(mv[r+4:r+4+ksl]).decode('utf-8', errors='ignore')
+                            k = bytes(mv[r + 4 : r + 4 + ksl]).decode("utf-8", errors="ignore")
                             r = r + 4 + ksl
                             if r + 4 > bend:
                                 break
-                            kv_len = struct.unpack_from('<i', mv, r)[0]
+                            kv_len = struct.unpack_from("<i", mv, r)[0]
                             r += 4
                             if kv_len < 0 or r + kv_len > bend:
                                 # Skip invalid KV
@@ -1464,9 +1637,9 @@ class OniSaveParser:
                                 continue
                             # Inspect payload
                             val = read_first_number(mv, r, r + kv_len)
-                            if k == 'WidthInCells' and val is not None and 8 <= val <= 4096:
+                            if k == "WidthInCells" and val is not None and 8 <= val <= 4096:
                                 found_w = val
-                            elif k == 'HeightInCells' and val is not None and 8 <= val <= 4096:
+                            elif k == "HeightInCells" and val is not None and 8 <= val <= 4096:
                                 found_h = val
                             r = r + kv_len
                         except Exception:
@@ -1490,6 +1663,7 @@ class OniSaveParser:
         extracts the first plausible int32 following each within a sliding window.
         """
         import struct
+
         if not body:
             return None
         mv = memoryview(body)
@@ -1507,7 +1681,7 @@ class OniSaveParser:
                 p = scan_start
                 while p + 4 <= scan_end:
                     try:
-                        v = struct.unpack_from('<i', mv, p)[0]
+                        v = struct.unpack_from("<i", mv, p)[0]
                         if 8 <= v <= 4096:
                             return int(v)
                     except Exception:
@@ -1521,33 +1695,33 @@ class OniSaveParser:
             if w is not None and h is not None:
                 return w, h
         return None
-    
+
     def _parse_save_data(self, file_data: bytes, result: ParseResult) -> Optional[SaveGame]:
         """
         Parse raw save file data.
-        
+
         Args:
             file_data: Raw bytes from save file
             result: ParseResult to store warnings
-            
+
         Returns:
             Parsed SaveGame object or None if parsing failed
         """
         reader = BinaryReader(file_data)
         save_game = SaveGame()
-        
+
         try:
             # Parse header first (contains version and other metadata)
             save_game.header = self._parse_header(reader, result)
-            
+
             # Extract version from header and validate; fallback to KSAV if missing
             major = 7
             minor = 36
-            gi = getattr(save_game.header, 'game_info', {}) or {}
+            gi = getattr(save_game.header, "game_info", {}) or {}
             try:
-                if 'saveMajorVersion' in gi and 'saveMinorVersion' in gi:
-                    major = int(gi.get('saveMajorVersion', major))
-                    minor = int(gi.get('saveMinorVersion', minor))
+                if "saveMajorVersion" in gi and "saveMinorVersion" in gi:
+                    major = int(gi.get("saveMajorVersion", major))
+                    minor = int(gi.get("saveMinorVersion", minor))
                 else:
                     # Fallback: inspect KSAV header from decompressed body
                     try:
@@ -1556,19 +1730,24 @@ class OniSaveParser:
                         body = None
                     if body:
                         import struct
+
                         mv = memoryview(body)
-                        pos = body.find(b'KSAV')
+                        pos = body.find(b"KSAV")
                         if pos != -1 and pos + 12 <= len(body):
                             p = pos + 4
-                            major = int(struct.unpack_from('<i', mv, p)[0]); p += 4
-                            minor = int(struct.unpack_from('<i', mv, p)[0]); p += 4
+                            major = int(struct.unpack_from("<i", mv, p)[0])
+                            p += 4
+                            minor = int(struct.unpack_from("<i", mv, p)[0])
+                            p += 4
                         # Emit a warning if header lacked versions and we had to fallback
-                        result.add_warning("Header missing saveMajorVersion/saveMinorVersion; used KSAV fallback")
+                        result.add_warning(
+                            "Header missing saveMajorVersion/saveMinorVersion; used KSAV fallback"
+                        )
             except Exception:
                 pass
             save_game.version = SaveGameVersion(major=major, minor=minor)
             self._validate_version(save_game.version)
-            
+
             # Parse remaining sections in order
             save_game.templates = self._parse_templates(reader, result)
             save_game.world = self._parse_world(reader, result)
@@ -1582,19 +1761,19 @@ class OniSaveParser:
                 save_game.metadata = self._finalize_metadata(getattr(self, "_last_file_bytes", b""))
             except Exception:
                 save_game.metadata = SaveGameMetadata()
-            
+
             return save_game
-            
+
         except Exception as e:
             self.logger.error(f"Error in save data parsing: {e}")
             raise
-    
+
     def _parse_version(self, reader: BinaryReader) -> SaveGameVersion:
         """Parse save file version from header JSON data."""
         # Based on RoboPhred's parser - version is in the JSON header
         # We'll parse it during header parsing and set a default here
         return SaveGameVersion(major=7, minor=36)  # Will be updated during header parsing
-    
+
     def _validate_version(self, version: SaveGameVersion):
         """Validate that the save file version is supported."""
         if version.major != self.SUPPORTED_MAJOR_VERSION:
@@ -1602,13 +1781,13 @@ class OniSaveParser:
                 f"Unsupported major version {version.major}. "
                 f"Expected {self.SUPPORTED_MAJOR_VERSION}"
             )
-        
+
         if not (self.MIN_MINOR_VERSION <= version.minor <= self.MAX_MINOR_VERSION):
             self.logger.warning(
                 f"Minor version {version.minor} may not be fully supported. "
                 f"Supported range: {self.MIN_MINOR_VERSION}-{self.MAX_MINOR_VERSION}"
             )
-    
+
     def _parse_header(self, reader: BinaryReader, result: ParseResult) -> SaveGameHeader:
         """Parse save file header JSON fully and normalize key fields.
 
@@ -1617,88 +1796,26 @@ class OniSaveParser:
         `self.last_game_info` for downstream heuristics.
         """
         import json
-        
+
         header = SaveGameHeader()
-        
         try:
-            # Based on RoboPhred's header parser:
-            # uint32: buildVersion
-            # uint32: headerSize  
-            # uint32: headerVersion
-            # uint32: isCompressed (if headerVersion >= 1)
-            # bytes[headerSize]: JSON game info
-            
-            build_version = reader.read_uint32()
-            header_size = reader.read_uint32()
-            header_version = reader.read_uint32()
-            
-            is_compressed = False
-            if header_version >= 1:
-                is_compressed = bool(reader.read_uint32())
-            
-            # Read JSON game info
-            info_bytes = reader.read_bytes(header_size)
-            info_str = info_bytes.decode('utf-8')
-            game_info = json.loads(info_str)
-            
-            # Populate header
-            header.game_info = game_info
-            # cluster id
-            header.cluster_id = str(game_info.get('clusterId') or game_info.get('ClusterId') or "")
-            # numbers with normalization and non-negative guard
-            def _nn_int(val: Any) -> int:
-                try:
-                    iv = int(val)
-                    return iv if iv >= 0 else 0
-                except Exception:
-                    return 0
-            header.num_cycles = _nn_int(game_info.get('numberOfCycles') or game_info.get('cycles') or 0)
-            header.num_duplicants = _nn_int(game_info.get('numberOfDuplicants') or game_info.get('duplicants') or 0)
-
-            # DLC flags
-            dlc_ids = game_info.get('dlcIds') or game_info.get('DlcIds') or []
-            if isinstance(dlc_ids, str):
-                dlc_ids = [dlc_ids]
-            if not isinstance(dlc_ids, list):
-                dlc_ids = []
-            header.dlc_ids = [str(d) for d in dlc_ids]
-            # Normalize a boolean has_dlc based on presence of any dlc id or known flags
-            has_dlc_flag = bool(game_info.get('hasDlc') or game_info.get('hasDLc') or game_info.get('hasDLC') or game_info.get('enableDlc') or game_info.get('expansionEnabled'))
-            header.has_dlc = has_dlc_flag or (len(header.dlc_ids) > 0)
-
-            # Mod flags
-            mods_info = game_info.get('mods') or game_info.get('Mods') or game_info.get('enabledMods') or []
-            header.has_mods = bool(mods_info) and (isinstance(mods_info, (list, dict)))
-            
-            self.logger.info(f"Parsed header - Version: {header_version}, Compressed: {is_compressed}")
-            self.logger.info(f"Game: {game_info.get('baseName', 'Unknown')}, Cycles: {header.num_cycles}")
-            
-            # Store additional header info
-            header.game_info.update({
-                'buildVersion': build_version,
-                'headerVersion': header_version,
-                'isCompressed': is_compressed
-            })
-            # Version fields into header.game_info if present (some saves include these)
-            # Do not fail if absent; downstream will default
-            if 'saveMajorVersion' not in header.game_info:
-                mv = game_info.get('saveMajorVersion')
-                if isinstance(mv, int):
-                    header.game_info['saveMajorVersion'] = mv
-            if 'saveMinorVersion' not in header.game_info:
-                mv2 = game_info.get('saveMinorVersion')
-                if isinstance(mv2, int):
-                    header.game_info['saveMinorVersion'] = mv2
-            # Keep a ref for heuristics in later sections
+            header = self._header_reader.parse_header(reader, result)
+            game_info = header.game_info
+            header_version = int(game_info.get("headerVersion", 0))
+            is_compressed = bool(game_info.get("isCompressed", False))
+            self.logger.info(
+                f"Parsed header - Version: {header_version}, Compressed: {is_compressed}"
+            )
+            self.logger.info(
+                f"Game: {game_info.get('baseName', 'Unknown')}, Cycles: {header.num_cycles}"
+            )
             self.last_game_info = game_info
-            
         except Exception as e:
             result.add_warning(f"Header parsing error: {e}")
             self.logger.error(f"Header parsing failed: {e}")
             raise
-        
         return header
-    
+
     def _parse_templates(self, reader: BinaryReader, result: ParseResult) -> TypeTemplates:
         """Parse type templates section (minimal frame reader with names only).
 
@@ -1717,10 +1834,16 @@ class OniSaveParser:
             mv = memoryview(blob)
             names: List[str] = []
             # Collect plausible ASCII names like MinionIdentity, MinionResume, MinionModifiers
-            for key in (b"MinionIdentity", b"MinionResume", b"MinionModifiers", b"Klei.AI.Traits", b"Klei.AI.Effects"):
+            for key in (
+                b"MinionIdentity",
+                b"MinionResume",
+                b"MinionModifiers",
+                b"Klei.AI.Traits",
+                b"Klei.AI.Effects",
+            ):
                 idx = blob.find(key)
                 if idx != -1:
-                    names.append(key.decode('utf-8'))
+                    names.append(key.decode("utf-8"))
             # Deduplicate and store
             seen = set()
             for n in names:
@@ -1733,7 +1856,7 @@ class OniSaveParser:
         except Exception as e:
             result.add_warning(f"Template parsing error: {e}")
         return templates
-    
+
     def _parse_world(self, reader: BinaryReader, result: ParseResult) -> SaveGameWorld:
         """Parse world data section (minimal fields).
 
@@ -1742,17 +1865,20 @@ class OniSaveParser:
         int32 values.
         """
         world = SaveGameWorld()
-        
+
         try:
             # Without templates, extract nothing structural yet.
             # Populate dimensions from header if present (best effort).
-            gi = getattr(self, 'last_game_info', {}) or {}
-            world.width_in_cells = int(gi.get('WidthInCells', 0) or gi.get('widthInCells', 0) or 0)
-            world.height_in_cells = int(gi.get('HeightInCells', 0) or gi.get('heightInCells', 0) or 0)
-            
+            gi = getattr(self, "last_game_info", {}) or {}
+            world.width_in_cells = int(gi.get("WidthInCells", 0) or gi.get("widthInCells", 0) or 0)
+            world.height_in_cells = int(
+                gi.get("HeightInCells", 0) or gi.get("heightInCells", 0) or 0
+            )
+
             # Try to find authoritative width/height keys in DECOMPRESSED body
             if world.width_in_cells == 0 or world.height_in_cells == 0:
                 import struct
+
                 try:
                     # Decompress once and cache
                     file_bytes: bytes = getattr(self, "_last_file_bytes", b"")
@@ -1787,14 +1913,15 @@ class OniSaveParser:
                         reader.seek(start_pos)
 
                     import struct
+
                     def find_int_after_raw(buf: bytes, label: bytes) -> Optional[int]:
                         idx = buf.find(label)
                         if idx == -1:
                             return None
-                        window = buf[idx: idx + 2048]
+                        window = buf[idx : idx + 2048]
                         for off in range(len(label), max(len(label), len(window) - 4)):
                             try:
-                                v = struct.unpack_from('<i', window, off)[0]
+                                v = struct.unpack_from("<i", window, off)[0]
                                 if 8 <= v <= 16384:
                                     return int(v)
                             except Exception:
@@ -1802,24 +1929,29 @@ class OniSaveParser:
                         return None
 
                     if world.width_in_cells == 0:
-                        w = find_int_after_raw(raw, b"WidthInCells") or find_int_after_raw(raw, b"widthInCells")
+                        w = find_int_after_raw(raw, b"WidthInCells") or find_int_after_raw(
+                            raw, b"widthInCells"
+                        )
                         if w:
                             world.width_in_cells = w
                     if world.height_in_cells == 0:
-                        h = find_int_after_raw(raw, b"HeightInCells") or find_int_after_raw(raw, b"heightInCells")
+                        h = find_int_after_raw(raw, b"HeightInCells") or find_int_after_raw(
+                            raw, b"heightInCells"
+                        )
                         if h:
                             world.height_in_cells = h
 
                 # Fallback: scan for labels and proximate int32 values
                 if world.width_in_cells == 0 or world.height_in_cells == 0:
+
                     def find_int_after(label: bytes, default_val: int = 0) -> int:
                         idx = body.find(label)
                         if idx == -1:
                             return default_val
-                        window = body[idx: idx + 512]
+                        window = body[idx : idx + 512]
                         for offset in range(len(label), max(len(label), len(window) - 4)):
                             try:
-                                val = struct.unpack_from('<i', window, offset)[0]
+                                val = struct.unpack_from("<i", window, offset)[0]
                             except Exception:
                                 continue
                             if 8 <= val <= 4096:
@@ -1829,17 +1961,25 @@ class OniSaveParser:
                     if world.width_in_cells == 0:
                         world.width_in_cells = find_int_after(b"WidthInCells", world.width_in_cells)
                     if world.height_in_cells == 0:
-                        world.height_in_cells = find_int_after(b"HeightInCells", world.height_in_cells)
+                        world.height_in_cells = find_int_after(
+                            b"HeightInCells", world.height_in_cells
+                        )
 
             # Plausibility note: if dims look unusually large/small, warn but keep values for visibility
             try:
-                if world.width_in_cells and world.height_in_cells and not (8 <= world.width_in_cells <= 16384 and 8 <= world.height_in_cells <= 16384):
+                if (
+                    world.width_in_cells
+                    and world.height_in_cells
+                    and not (
+                        8 <= world.width_in_cells <= 16384 and 8 <= world.height_in_cells <= 16384
+                    )
+                ):
                     result.add_warning(
                         f"World dimensions look unusual (w={world.width_in_cells}, h={world.height_in_cells}); verify"
                     )
             except Exception:
                 pass
-            
+
             # Preserve the same decompressed body as world.data for size visibility
             # without attempting to structurally decode the world. Also frame
             # compressed blocks and compute diagnostics (sizes, CRCs).
@@ -1847,7 +1987,9 @@ class OniSaveParser:
                 file_bytes: bytes = getattr(self, "_last_file_bytes", b"")
                 if file_bytes:
                     # Frame blocks
-                    import zlib, binascii
+                    import binascii
+                    import zlib
+
                     blocks: List[SaveBlockInfo] = []
                     start_after_header, _ = self._parse_header_raw(file_bytes)
                     search = file_bytes[start_after_header:]
@@ -1863,7 +2005,7 @@ class OniSaveParser:
                                 idx = pos + 1
                                 continue
                             seen.add(abs_pos)
-                            header_preview = file_bytes[abs_pos:abs_pos+10].hex()
+                            header_preview = file_bytes[abs_pos : abs_pos + 10].hex()
                             # Try to decompress from this position to some cap; if fails, skip
                             decompressed: bytes = b""
                             comp_size = 0
@@ -1875,14 +2017,16 @@ class OniSaveParser:
                                 decomp_size = len(decompressed)
                                 # compressed_size unknown without container framing; estimate span until next block or end
                                 comp_size = len(file_bytes) - abs_pos
-                                crc_hex = format(binascii.crc32(decompressed) & 0xFFFFFFFF, '08x')
-                                blocks.append(SaveBlockInfo(
-                                    offset=abs_pos,
-                                    header=header_preview,
-                                    compressed_size=comp_size,
-                                    decompressed_size=decomp_size,
-                                    crc32=crc_hex,
-                                ))
+                                crc_hex = format(binascii.crc32(decompressed) & 0xFFFFFFFF, "08x")
+                                blocks.append(
+                                    SaveBlockInfo(
+                                        offset=abs_pos,
+                                        header=header_preview,
+                                        compressed_size=comp_size,
+                                        decompressed_size=decomp_size,
+                                        crc32=crc_hex,
+                                    )
+                                )
                             except Exception:
                                 pass
                             idx = pos + 1
@@ -1899,22 +2043,22 @@ class OniSaveParser:
             result.add_warning("World data preserved as binary (not parsed)")
         except Exception as e:
             result.add_warning(f"World parsing error: {e}")
-        
+
         return world
-    
+
     def _parse_settings(self, reader: BinaryReader, result: ParseResult) -> SaveGameSettings:
         """Parse game settings section."""
         # TODO: Implement settings parsing
         settings = SaveGameSettings()
-        
+
         try:
             result.add_warning("Settings parsing not yet implemented")
-            
+
         except Exception as e:
             result.add_warning(f"Settings parsing error: {e}")
-        
+
         return settings
-    
+
     def _parse_sim_data(self, reader: BinaryReader, result: ParseResult) -> bytes:
         """Parse simulation data section.
 
@@ -1931,48 +2075,47 @@ class OniSaveParser:
                     return b""
                 body = self._decompress_body_block(file_bytes)
             if not body:
-                result.add_warning("Simulation data decompress failed or not found; preserved as empty")
+                result.add_warning(
+                    "Simulation data decompress failed or not found; preserved as empty"
+                )
                 return b""
             result.add_warning("Simulation data preserved as binary")
             return body
         except Exception as e:
             result.add_warning(f"Sim data parsing error: {e}")
             return b""
-    
+
     def _parse_game_objects(self, reader: BinaryReader, result: ParseResult) -> GameObjectGroups:
         """Parse game objects section."""
         # TODO: Implement game objects parsing
         game_objects = GameObjectGroups()
-        
+
         try:
             result.add_warning("Game objects parsing not yet implemented")
-            
+
         except Exception as e:
             result.add_warning(f"Game objects parsing error: {e}")
-        
+
         return game_objects
-    
+
     def _parse_game_data(self, reader: BinaryReader, result: ParseResult) -> SaveGameData:
         """Parse additional game data section."""
         # TODO: Implement game data parsing
         game_data = SaveGameData()
-        
+
         try:
             result.add_warning("Game data parsing not yet implemented")
-            
+
         except Exception as e:
             result.add_warning(f"Game data parsing error: {e}")
-        
+
         return game_data
-    
+
     def get_supported_versions(self) -> Dict[str, Any]:
         """Get information about supported save file versions."""
         return {
             "major_version": self.SUPPORTED_MAJOR_VERSION,
-            "minor_version_range": {
-                "min": self.MIN_MINOR_VERSION,
-                "max": self.MAX_MINOR_VERSION
-            },
+            "minor_version_range": {"min": self.MIN_MINOR_VERSION, "max": self.MAX_MINOR_VERSION},
             "based_on": "RoboPhred's oni-save-parser analysis",
-            "last_updated": "2025-08-09"
+            "last_updated": "2025-08-09",
         }

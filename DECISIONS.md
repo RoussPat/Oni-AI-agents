@@ -217,3 +217,9 @@ Each decision follows this format:
 **Decision**: Use concise worker briefs (prompts) to run parallel tasks confined to save-file parsing; track outcomes here.  
 **Consequences**: Faster parallel progress, clear acceptance criteria, and consistent adherence to repo guidelines.
 
+## ♻️ Save Parser Modularization Facade v0.1
+**Date**: 2025-08-10
+**Decision**: Extract cohesive responsibilities from `save_parser.py` into small modules: `header_reader.py`, `compressed_blocks.py`, `ksav_index.py`, `duplicant_decoder.py`, `metadata_builder.py`; keep `OniSaveParser` as a thin orchestrator.
+**Rationale**: Reduce edit contention, enable parallel workstreams (header/metadata, KSAV counts, duplicants, CLI) without touching `save_parser.py`.
+**Consequences**: No functional changes; tests remain green; downstream workers can implement features in dedicated files.
+

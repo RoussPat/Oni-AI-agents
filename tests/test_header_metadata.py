@@ -45,8 +45,8 @@ def test_version_fallback_and_warning_when_header_missing_versions(monkeypatch):
     def _wrapped(reader, result):
         header = orig_parse_header(reader, result)
         # Remove explicit version fields to force fallback path
-        header.game_info.pop('saveMajorVersion', None)
-        header.game_info.pop('saveMinorVersion', None)
+        header.game_info.pop("saveMajorVersion", None)
+        header.game_info.pop("saveMinorVersion", None)
         return header
 
     monkeypatch.setattr(parser, "_parse_header", _wrapped)
@@ -60,5 +60,3 @@ def test_version_fallback_and_warning_when_header_missing_versions(monkeypatch):
     assert 11 <= sg.version.minor <= 36
     # Warning should be present
     assert any("KSAV fallback" in w for w in result.warnings)
-
-

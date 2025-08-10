@@ -13,14 +13,14 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from PIL import Image
 
-from src.oni_ai_agents.core.agent_types import AgentType
 from src.oni_ai_agents.core.agent import AgentMessage
+from src.oni_ai_agents.core.agent_types import AgentType
 
 
 # Module-level fixtures used by multiple classes

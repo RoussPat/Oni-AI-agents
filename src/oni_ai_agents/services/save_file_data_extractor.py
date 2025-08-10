@@ -7,15 +7,15 @@ Provides section-oriented views of an ONI save file using the OniSaveParser.
 This serves as a compatibility layer for observer agents expecting section data.
 """
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
-import logging
 
 from .oni_save_parser import OniSaveParser
 from .oni_save_parser.world_grid_histogrammer import (
-    compute_histograms,
     compute_breathable_percent,
+    compute_histograms,
 )
 
 

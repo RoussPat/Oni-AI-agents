@@ -67,7 +67,8 @@ class DuplicantDecoder:
         return re.fullmatch(r"[A-Za-z][A-Za-z '\-]*", s) is not None
 
     def _scan_best_float32(self, mv: memoryview, start: int, end: int, min_val: float, max_val: float) -> Optional[float]:
-        import struct, math
+        import math
+        import struct
 
         best = None
         p = start
@@ -340,8 +341,8 @@ class DuplicantDecoder:
 
     # ---- main entry ----
     def extract_minion_details_from_body(self, body: bytes) -> List[Dict[str, Any]]:
-        import struct
         import re
+        import struct
 
         mv = memoryview(body)
         ksav = body.find(b"KSAV")

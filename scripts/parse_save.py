@@ -10,8 +10,14 @@ Usage:
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict
+
+# Ensure project root is on sys.path so `src` package is importable when running as a script
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.oni_ai_agents.services.oni_save_parser import OniSaveParser
 from src.oni_ai_agents.services.oni_save_parser.data_extractor import SaveFileDataExtractor

@@ -20,6 +20,7 @@ from .world_grid_histogrammer import (
 from .data_structures import (
     SaveGame, SaveGameHeader, SaveGameVersion, TypeTemplates, TypeTemplate,
     SaveGameWorld, SaveGameSettings, GameObjectGroups, SaveGameData,
+    SaveBlockInfo, SaveGameMetadata,
     ParseResult
 )
 
@@ -336,6 +337,82 @@ class OniSaveParser:
                 except Exception:
                     pass
                 idx = pos + 1
+
+    def _finalize_metadata(self, file_bytes: bytes) -> SaveGameMetadata:
+        """Build SaveGameMetadata including block diagnostics and KSAV summary."""
+        metadata = SaveGameMetadata()
+        if not file_bytes:
+            return metadata
+        try:
+            import zlib, binascii
+            start_after_header, _ = self._parse_header_raw(file_bytes)
+            search = file_bytes[start_after_header:]
+            seen = set()
+            for sig in (b"\x78\x9c", b"\x78\xda", b"\x78\x01"):
+                idx = 0
+                while True:
+                    pos = search.find(sig, idx)
+                    if pos == -1:
+                        break
+                    abs_pos = start_after_header + pos
+                    if abs_pos in seen:
+                        idx = pos + 1
+                        continue
+                    seen.add(abs_pos)
+                    header_preview = file_bytes[abs_pos:abs_pos+10].hex()
+                    try:
+                        decompressed = zlib.decompress(file_bytes[abs_pos:])
+                        crc_hex = format(binascii.crc32(decompressed) & 0xFFFFFFFF, '08x')
+                        # We do not know exact compressed_size; store remaining as an upper-bound estimate
+                        comp_size = len(file_bytes) - abs_pos
+                        decomp_size = len(decompressed)
+                        metadata.blocks.append(SaveBlockInfo(
+                            offset=abs_pos,
+                            header=header_preview,
+                            compressed_size=comp_size,
+                            decompressed_size=decomp_size,
+                            crc32=crc_hex,
+                        ))
+                    except Exception:
+                        pass
+                    idx = pos + 1
+
+            # KSAV group/instance summary from cached body
+            body = getattr(self, "_cached_sim_body", None)
+            if body is None:
+                body = self._decompress_body_block(file_bytes) or b""
+            if body:
+                import struct
+                mv = memoryview(body)
+                pos = body.find(b'KSAV')
+                if pos != -1 and pos + 12 <= len(body):
+                    p = pos + 4
+                    _maj = struct.unpack_from('<i', mv, p)[0]; p += 4
+                    _min = struct.unpack_from('<i', mv, p)[0]; p += 4
+                    group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                    total_instances = 0
+                    for _ in range(max(0, group_count)):
+                        if p + 4 > len(body):
+                            break
+                        name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
+                        if name_len < 0 or p + name_len > len(body):
+                            break
+                        p += name_len
+                        if p + 8 > len(body):
+                            break
+                        instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
+                        data_length = struct.unpack_from('<i', mv, p)[0]; p += 4
+                        total_instances += int(instance_count)
+                        p = p + max(0, data_length)
+                        if p > len(body):
+                            break
+                    metadata.ksav_summary = {
+                        "group_count": int(group_count),
+                        "total_instances": int(total_instances),
+                    }
+        except Exception:
+            pass
+        return metadata
 
     def _extract_world_dimensions_from_stream(self, file_bytes: bytes) -> Optional[Tuple[int, int]]:
         """Search all decompressed blocks for world dimension info via JSON or KV scans."""
@@ -1501,6 +1578,12 @@ class OniSaveParser:
             save_game.sim_data = self._parse_sim_data(reader, result)
             save_game.game_objects = self._parse_game_objects(reader, result)
             save_game.game_data = self._parse_game_data(reader, result)
+
+            # Finalize metadata from cached artifacts
+            try:
+                save_game.metadata = self._finalize_metadata(getattr(self, "_last_file_bytes", b""))
+            except Exception:
+                save_game.metadata = SaveGameMetadata()
             
             return save_game
             
@@ -1722,14 +1805,57 @@ class OniSaveParser:
                 pass
             
             # Preserve the same decompressed body as world.data for size visibility
-            # without attempting to structurally decode the world.
+            # without attempting to structurally decode the world. Also frame
+            # compressed blocks and compute diagnostics (sizes, CRCs).
             try:
                 file_bytes: bytes = getattr(self, "_last_file_bytes", b"")
                 if file_bytes:
+                    # Frame blocks
+                    import zlib, binascii
+                    blocks: List[SaveBlockInfo] = []
+                    start_after_header, _ = self._parse_header_raw(file_bytes)
+                    search = file_bytes[start_after_header:]
+                    seen = set()
+                    for sig in (b"\x78\x9c", b"\x78\xda", b"\x78\x01"):
+                        idx = 0
+                        while True:
+                            pos = search.find(sig, idx)
+                            if pos == -1:
+                                break
+                            abs_pos = start_after_header + pos
+                            if abs_pos in seen:
+                                idx = pos + 1
+                                continue
+                            seen.add(abs_pos)
+                            header_preview = file_bytes[abs_pos:abs_pos+10].hex()
+                            # Try to decompress from this position to some cap; if fails, skip
+                            decompressed: bytes = b""
+                            comp_size = 0
+                            decomp_size = 0
+                            crc_hex = ""
+                            try:
+                                # We don't know the exact compressed block length; decompress from offset
+                                decompressed = zlib.decompress(file_bytes[abs_pos:])
+                                decomp_size = len(decompressed)
+                                # compressed_size unknown without container framing; estimate span until next block or end
+                                comp_size = len(file_bytes) - abs_pos
+                                crc_hex = format(binascii.crc32(decompressed) & 0xFFFFFFFF, '08x')
+                                blocks.append(SaveBlockInfo(
+                                    offset=abs_pos,
+                                    header=header_preview,
+                                    compressed_size=comp_size,
+                                    decompressed_size=decomp_size,
+                                    crc32=crc_hex,
+                                ))
+                            except Exception:
+                                pass
+                            idx = pos + 1
+
+                    # Store KSAV body and cache
                     body = self._decompress_body_block(file_bytes) or b""
                     world.data = body
-                    # Cache for reuse by _parse_sim_data and other helpers
                     self._cached_sim_body = body
+                    # Attach metadata blocks later in _finalize_metadata
             except Exception:
                 pass
 

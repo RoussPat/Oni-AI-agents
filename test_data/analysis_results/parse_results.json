@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-10T13:36:02",
+  "timestamp": "2025-08-10T14:44:37.699746",
   "file_path": "test_data/clone_laboratory.sav",
   "file_size_bytes": 2394836,
   "success": true,
@@ -11,7 +11,7 @@
     "Game objects parsing not yet implemented",
     "Game data parsing not yet implemented"
   ],
-  "parse_time_seconds": 8.466902732849121,
+  "parse_time_seconds": 7.842325448989868,
   "save_summary": {
     "version": "7.36",
     "cycles": 151,
@@ -45,11 +45,6 @@
         "gender": "MALE",
         "arrival_time": 0,
         "job": "Builder",
-        "aptitudes": {
-          "Building": 3,
-          "Hauling": 2,
-          "Mining": 3
-        },
         "traits": []
       },
       {
@@ -73,12 +68,6 @@
         "gender": "MALE",
         "arrival_time": 0,
         "job": "Resea",
-        "aptitudes": {
-          "Research": 2,
-          "Hauling": 2,
-          "Basekeeping": 2,
-          "Mining": 1
-        },
         "traits": []
       },
       {
@@ -102,12 +91,6 @@
         "gender": "FEMALE",
         "arrival_time": 1073741824,
         "job": "Pyrotechnician",
-        "aptitudes": {
-          "Hauling": 2,
-          "Basekeeping": 2,
-          "Technicals": 2,
-          "Engineering": 1
-        },
         "traits": []
       },
       {
@@ -130,13 +113,6 @@
         "name": "Leira",
         "gender": "FEMALE",
         "arrival_time": 1084227584,
-        "aptitudes": {
-          "Technicals": 2,
-          "Hauling": 2,
-          "Engineering": 1,
-          "Art": 3,
-          "Management": 1
-        },
         "job": "Artist",
         "traits": []
       },
@@ -161,15 +137,6 @@
         "gender": "NB",
         "arrival_time": 1090519040,
         "job": "Engineer",
-        "aptitudes": {
-          "Art": 1,
-          "Hauling": 2,
-          "Basekeeping": 1,
-          "Technicals": 2,
-          "Engineering": 1,
-          "Management": 1,
-          "Suits": 1
-        },
         "traits": []
       },
       {
@@ -193,14 +160,6 @@
         "gender": "MALE",
         "arrival_time": 1102577664,
         "job": "Engineer",
-        "aptitudes": {
-          "Hauling": 2,
-          "Technicals": 2,
-          "Engineering": 1,
-          "Mining": 1,
-          "Management": 1,
-          "Suits": 1
-        },
         "traits": []
       },
       {
@@ -224,12 +183,6 @@
         "gender": "MALE",
         "arrival_time": 1105723392,
         "job": "Ranc",
-        "aptitudes": {
-          "Farming": 1,
-          "Ranching": 2,
-          "Hauling": 2,
-          "Basekeeping": 2
-        },
         "traits": []
       },
       {
@@ -253,11 +206,6 @@
         "gender": "FEMALE",
         "arrival_time": 1107296256,
         "job": "Miner",
-        "aptitudes": {
-          "Mining": 3,
-          "Cooking": 2,
-          "Hauling": 2
-        },
         "traits": []
       },
       {
@@ -281,11 +229,6 @@
         "gender": "NB",
         "arrival_time": 1109131264,
         "job": "Farmer",
-        "aptitudes": {
-          "Farming": 3,
-          "Hauling": 2,
-          "Mining": 1
-        },
         "traits": []
       },
       {
@@ -309,10 +252,6 @@
         "gender": "MALE",
         "arrival_time": 1118437376,
         "job": "Doctor",
-        "aptitudes": {
-          "MedicalAid": 3,
-          "Hauling": 2
-        },
         "traits": []
       },
       {
@@ -336,10 +275,6 @@
         "gender": "MALE",
         "arrival_time": 1121452032,
         "job": "Cook",
-        "aptitudes": {
-          "Cooking": 2,
-          "Hauling": 2
-        },
         "traits": []
       }
     ],

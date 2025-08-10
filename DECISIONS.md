@@ -212,3 +212,8 @@ Each decision follows this format:
 **Rationale**: Enables parallel parsing and agent workstreams.  
 **Consequences**: Teams can implement independently; core agent receives richer, consistent inputs.  
 
+## 👔 AI PM + Worker Model (Save Parser Focus)
+**Date**: 2025-08-10  
+**Decision**: Use concise worker briefs (prompts) to run parallel tasks confined to save-file parsing; track outcomes here.  
+**Consequences**: Faster parallel progress, clear acceptance criteria, and consistent adherence to repo guidelines.
+

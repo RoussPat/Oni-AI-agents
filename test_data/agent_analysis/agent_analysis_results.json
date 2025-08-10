@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-09T14:11:04.737562",
+  "timestamp": "2025-08-10T14:45:22.450367",
   "save_file": "test_data/clone_laboratory.sav",
   "save_summary": {
     "version": "7.36",
@@ -8,8 +8,8 @@
     "object_groups": 0,
     "total_objects": 0,
     "object_counts": {},
-    "world_data_size": 0,
-    "sim_data_size": 0
+    "world_data_size": 27950195,
+    "sim_data_size": 27950195
   },
   "game_info": {
     "numberOfCycles": 151,
@@ -36,12 +36,12 @@
       "agent_id": "resource_test",
       "section": "resources",
       "error": "'<' not supported between instances of 'NoneType' and 'int'",
-      "timestamp": "2025-08-09T14:11:04.413039"
+      "timestamp": "2025-08-10T14:45:09.262813"
     },
     "duplicant": {
       "agent_id": "duplicant_test",
       "section": "duplicants",
-      "timestamp": "2025-08-09T14:11:04.577065",
+      "timestamp": "2025-08-10T14:45:15.854186",
       "duplicant_data": {
         "count": 11,
         "list": [
@@ -65,21 +65,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "CantCook",
-              "StickerBomber",
-              "UglyCrier",
-              "Uncultured"
-            ],
-            "effects": [
-              "ColdAir",
-              "WarmAir"
-            ],
-            "aptitudes": {
-              "Building": 3,
-              "Hauling": 2,
-              "Mining": 3
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 72.5,
               "y": 42.0099983215332,
@@ -106,21 +94,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "BalloonArtist",
-              "EarlyBird",
-              "Narcolepsy",
-              "UglyCrier"
-            ],
-            "effects": [
-              "\u0006\u0000\u0000\u0000Dec"
-            ],
-            "aptitudes": {
-              "Research": 2,
-              "Hauling": 2,
-              "Basekeeping": 2,
-              "Mining": 1
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 37.5,
               "y": 126.01000213623047,
@@ -147,23 +123,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "EarlyBird",
-              "InteriorDecorator",
-              "StressVomiter",
-              "SuperProductive",
-              "WeakImmuneSystem"
-            ],
-            "effects": [
-              "ColdAir",
-              "WarmAir"
-            ],
-            "aptitudes": {
-              "Hauling": 2,
-              "Basekeeping": 2,
-              "Technicals": 2,
-              "Engineering": 1
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 74.5,
               "y": 115.01000213623047,
@@ -190,24 +152,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "BingeEater",
-              "IronGut",
-              "SimpleTastes",
-              "SparkleStreaker",
-              "StrongImmuneSystem"
-            ],
-            "effects": [
-              "ColdAir",
-              "WarmAir"
-            ],
-            "aptitudes": {
-              "Technicals": 2,
-              "Hauling": 2,
-              "Engineering": 1,
-              "Art": 3,
-              "Management": 1
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 78.5,
               "y": 110.01000213623047,
@@ -234,24 +181,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "BalloonArtist",
-              "CantCook",
-              "StrongImmuneSystem",
-              "UglyCrier"
-            ],
-            "effects": [
-              "\f\u0000\u0000\u0000Roo"
-            ],
-            "aptitudes": {
-              "Art": 1,
-              "Hauling": 2,
-              "Basekeeping": 1,
-              "Technicals": 2,
-              "Engineering": 1,
-              "Management": 1,
-              "Suits": 1
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 36.5,
               "y": 126.01000213623047,
@@ -278,21 +210,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "Aggressive",
-              "SuperProductive"
-            ],
-            "effects": [
-              "\f\u0000\u0000\u0000Ro"
-            ],
-            "aptitudes": {
-              "Hauling": 2,
-              "Technicals": 2,
-              "Engineering": 1,
-              "Mining": 1,
-              "Management": 1,
-              "Suits": 1
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 36.05000686645508,
               "y": 131.00999450683594,
@@ -319,22 +239,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "BalloonArtist",
-              "IronGut",
-              "StressVomiter",
-              "Uncultured"
-            ],
-            "effects": [
-              "ColdAir",
-              "WarmAir"
-            ],
-            "aptitudes": {
-              "Farming": 1,
-              "Ranching": 2,
-              "Hauling": 2,
-              "Basekeeping": 2
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 73.5,
               "y": 117.51412963867188,
@@ -361,20 +268,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "StickerBomber",
-              "StrongImmuneSystem",
-              "UglyCrier",
-              "Uncultured"
-            ],
-            "effects": [
-              "\u0006\u0000\u0000\u0000"
-            ],
-            "aptitudes": {
-              "Mining": 3,
-              "Cooking": 2,
-              "Hauling": 2
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 79.72417449951172,
               "y": 126.01000213623047,
@@ -401,20 +297,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "Allergies",
-              "BalloonArtist",
-              "Greasemonkey",
-              "StressVomiter"
-            ],
-            "effects": [
-              "\f\u0000\u0000\u0000"
-            ],
-            "aptitudes": {
-              "Farming": 3,
-              "Hauling": 2,
-              "Mining": 1
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 81.5,
               "y": 126.01000213623047,
@@ -441,17 +326,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "UglyCrier",
-              "Uncultured"
-            ],
-            "effects": [
-              "\u0006\u0000\u0000\u0000Dec"
-            ],
-            "aptitudes": {
-              "MedicalAid": 3,
-              "Hauling": 2
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 81.5,
               "y": 126.01000213623047,
@@ -478,19 +355,9 @@
               "toxicity": 0.0,
               "radiation_balance": 0.0
             },
-            "traits": [
-              "Allergies",
-              "BingeEater",
-              "IronGut",
-              "SparkleStreaker"
-            ],
-            "effects": [
-              "\u0006\u0000\u0000\u0000De"
-            ],
-            "aptitudes": {
-              "Cooking": 2,
-              "Hauling": 2
-            },
+            "traits": [],
+            "effects": [],
+            "aptitudes": {},
             "position": {
               "x": 32.5,
               "y": 126.01000213623047,
@@ -514,14 +381,14 @@
         "high_stress": [],
         "unassigned_duplicants": []
       },
-      "ai_analysis": "Hello! I'm a local AI model for testing.",
+      "ai_analysis": "I'm ready to help with Oxygen Not Included game analysis.",
       "alerts": [],
       "recommendations": []
     },
     "threat": {
       "agent_id": "threat_test",
       "section": "threats",
-      "timestamp": "2025-08-09T14:11:04.734682",
+      "timestamp": "2025-08-10T14:45:22.449487",
       "threat_data": {
         "diseases": {},
         "temperature_zones": {},
@@ -545,7 +412,7 @@
     },
     "image": {
       "summary": "Local Vision Analysis: Analyze this Oxygen Not Included base screenshot a...",
-      "timestamp": 1754741464.7374916,
+      "timestamp": 1754829922.4503043,
       "image_hash": "65bf48dad0668c1c0f19d1321ee8efb8191d0b89faf59fe0a8bf3253a6f486be",
       "analysis_type": "base_overview"
     }

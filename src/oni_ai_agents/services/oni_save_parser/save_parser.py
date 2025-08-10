@@ -23,6 +23,12 @@ from .data_structures import (
     SaveBlockInfo, SaveGameMetadata,
     ParseResult
 )
+from .known_ids import load_known_trait_ids, load_known_effect_ids
+from .compressed_blocks import CompressedBlocksScanner
+from .ksav_index import KSAVGroupCounter
+from .duplicant_decoder import DuplicantDecoder
+from .metadata_builder import MetadataBuilder
+from .header_reader import SaveHeaderReader
 
 
 class OniSaveParser:
@@ -40,22 +46,262 @@ class OniSaveParser:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        # Known IDs for cleaner extraction fallback (subset curated from research)
-        self._KNOWN_TRAIT_IDS = {
-            'SmallBladder','Narcolepsy','Flatulence','Anemic','MouthBreather','BingeEater','StressVomiter',
-            'UglyCrier','EarlyBird','NightOwl','FastLearner','SlowLearner','NoodleArms','StrongArm',
-            'IronGut','WeakImmuneSystem','StrongImmuneSystem','DeeperDiversLungs','Snorer','BalloonArtist',
-            'SparkleStreaker','StickerBomber','InteriorDecorator','Uncultured','Allergies','Hemophobia',
-            'Claustrophobic','SolitarySleeper','Workaholic','Aggressive','Foodie','SimpleTastes','Greasemonkey',
-            'MoleHands','Twinkletoes','SunnyDisposition','RockCrusher','BedsideManner','Archaeologist',
+        # Curated ID sets (loaded from research when available, else fallbacks)
+        self._KNOWN_TRAIT_IDS = load_known_trait_ids()
+        self._KNOWN_EFFECT_IDS = load_known_effect_ids()
+        # Modular helpers
+        self._blocks = CompressedBlocksScanner()
+        self._ksav_counter = KSAVGroupCounter()
+        self._decoder = DuplicantDecoder()
+        self._metadata_builder = MetadataBuilder()
+        self._header_reader = SaveHeaderReader()
+
+    # -------------------- Minion structured helpers --------------------
+    def _parse_minion_identity(self, mv: memoryview, beh_start: int, beh_end: int) -> Dict[str, Any]:
+        """Best-effort decode of MinionIdentity behavior payload.
+
+        Returns a dict with keys: name (str|None), gender (str|None), arrival_time (int|None).
+        """
+        import struct as _st
+        identity: Dict[str, Any] = {}
+        q = beh_start
+        found_name = False
+        found_gender = False
+        # Parse as a sequence of key-value entries: [keyStr][len][payload]
+        while q < beh_end:
+            key, q2 = self._read_klei_string(mv, q, beh_end)
+            if key is None:
+                q += 1
+                continue
+            if q2 + 4 > beh_end:
+                break
+            kv_len = _st.unpack_from('<i', mv, q2)[0]
+            q2 += 4
+            if kv_len < 0 or q2 + kv_len > beh_end:
+                q = q2
+                continue
+            if key in ('name', 'nameStringKey', 'gender', 'genderStringKey'):
+                try:
+                    payload = bytes(mv[q2:q2+kv_len])
+                    if len(payload) >= 4:
+                        slen = _st.unpack_from('<i', payload, 0)[0]
+                        if 0 <= slen <= len(payload) - 4:
+                            s = payload[4:4+slen].decode('utf-8', errors='ignore')
+                            if key == 'name' and s and self._is_plausible_name(s):
+                                identity['name'] = s
+                                found_name = True
+                            elif key == 'gender' and s in ("MALE", "FEMALE", "NB"):
+                                identity['gender'] = s
+                                found_gender = True
+                except Exception:
+                    pass
+            elif key == 'arrivalTime':
+                try:
+                    if kv_len >= 4:
+                        at32 = _st.unpack_from('<i', mv, q2)[0]
+                        if 0 <= at32 < 10**10:
+                            identity['arrival_time'] = int(at32)
+                    if 'arrival_time' not in identity and kv_len >= 8:
+                        at64 = _st.unpack_from('<q', mv, q2)[0]
+                        if 0 <= at64 < 10**12:
+                            identity['arrival_time'] = int(at64)
+                    if 'arrival_time' not in identity and kv_len >= 4:
+                        af32 = _st.unpack_from('<f', mv, q2)[0]
+                        if 0.0 <= af32 < 10**10:
+                            identity['arrival_time'] = int(af32)
+                    if 'arrival_time' not in identity and kv_len >= 8:
+                        af64 = _st.unpack_from('<d', mv, q2)[0]
+                        if 0.0 <= af64 < 10**12:
+                            identity['arrival_time'] = int(af64)
+                except Exception:
+                    pass
+            q = q2 + kv_len
+
+        # Fallbacks
+        if not found_name:
+            for s in self._scan_klei_strings(mv, beh_start, beh_end, max_strings=32):
+                if self._is_plausible_name(s):
+                    identity['name'] = s
+                    break
+        if 'arrival_time' not in identity:
+            try:
+                off = beh_start
+                _nm, off = self._read_klei_string(mv, off, beh_end)
+                _nm_key, off = self._read_klei_string(mv, off, beh_end)
+                gender_s, off = self._read_klei_string(mv, off, beh_end)
+                _gender_key, off = self._read_klei_string(mv, off, beh_end)
+                if gender_s in ("MALE", "FEMALE", "NB") and 'gender' not in identity:
+                    identity['gender'] = gender_s
+                if off + 4 <= beh_end:
+                    at = _st.unpack_from('<i', mv, off)[0]
+                    if at >= 0:
+                        identity['arrival_time'] = int(at)
+            except Exception:
+                pass
+        return identity
+
+    def _parse_minion_resume(self, mv: memoryview, beh_start: int, beh_end: int) -> Dict[str, Any]:
+        """Decode MinionResume, returning role, aptitudes, mastered roles if present.
+
+        Returns keys: currentRole (str|None), aptitudes (dict) if found, mastered_roles (list) if found.
+        """
+        import struct as _st
+        result: Dict[str, Any] = {}
+        aptitudes: Dict[str, int] = {}
+
+        def map_group(raw: str) -> str:
+            raw_l = raw.lower()
+            alias = {
+                'mining': 'Mining', 'building': 'Building', 'farming': 'Farming', 'ranching': 'Ranching',
+                'researching': 'Research', 'research': 'Research', 'cooking': 'Cooking', 'arting': 'Art',
+                'art': 'Art', 'hauling': 'Hauling', 'suits': 'Suits', 'technicals': 'Technicals',
+                'engineering': 'Engineering', 'basekeeping': 'Basekeeping', 'astronauting': 'Management',
+                'medicine': 'MedicalAid', 'rocketpiloting': 'Management', 'medicalaid': 'MedicalAid',
+            }.get(raw_l)
+            if alias:
+                return alias
+            for pref, mapped in [
+                ('build', 'Building'), ('resear', 'Research'), ('resea', 'Research'),
+                ('min', 'Mining'), ('farm', 'Farming'), ('ranch', 'Ranching'),
+                ('operat', 'Operating'), ('engin', 'Engineering'), ('medica', 'MedicalAid'),
+                ('med', 'MedicalAid'), ('cook', 'Cooking'), ('art', 'Art'),
+                ('haul', 'Hauling'), ('tidy', 'Basekeeping'), ('suit', 'Suits'),
+                ('tech', 'Technicals'), ('pyrotech', 'Technicals'), ('astron', 'Management'),
+                ('manage', 'Management'),
+            ]:
+                if raw_l.startswith(pref):
+                    return mapped
+            return raw.capitalize()
+
+        q = beh_start
+        while q < beh_end:
+            key, q2 = self._read_klei_string(mv, q, beh_end)
+            if key is None:
+                q += 1
+                continue
+            if q2 + 4 > beh_end:
+                break
+            kv_len = _st.unpack_from('<i', mv, q2)[0]
+            q2 += 4
+            if kv_len < 0 or q2 + kv_len > beh_end:
+                q = q2
+                continue
+            if key == 'currentRole':
+                try:
+                    payload = bytes(mv[q2:q2+kv_len])
+                    if len(payload) >= 4:
+                        slen = _st.unpack_from('<i', payload, 0)[0]
+                        if 0 <= slen <= len(payload) - 4:
+                            s = payload[4:4+slen].decode('utf-8', errors='ignore')
+                            if s:
+                                result['currentRole'] = s
+                except Exception:
+                    pass
+            elif key == 'AptitudeBySkillGroup':
+                try:
+                    pay = memoryview(mv[q2:q2+kv_len])
+                    rp = 0
+                    cnt = None
+                    if rp + 4 <= len(pay):
+                        cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                    if cnt is not None and 0 <= cnt <= 128:
+                        for _ in range(cnt):
+                            if rp + 4 > len(pay):
+                                break
+                            glen = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                            if glen < 0 or rp + glen > len(pay):
+                                break
+                            graw = bytes(pay[rp:rp+glen]).decode('utf-8', errors='ignore'); rp += glen
+                            lvl = None
+                            if rp + 4 <= len(pay):
+                                cand = _st.unpack_from('<i', pay, rp)[0]
+                                if 0 <= cand <= 10:
+                                    lvl = int(cand); rp += 4
+                            if lvl is None and rp + 4 <= len(pay):
+                                fv = _st.unpack_from('<f', pay, rp)[0]
+                                if 0.0 <= fv <= 10.0:
+                                    lvl = int(round(fv)); rp += 4
+                            if lvl is None:
+                                rp = min(len(pay), rp + 4)
+                                continue
+                            group_key = map_group(graw)
+                            if group_key:
+                                prev = aptitudes.get(group_key, 0)
+                                if lvl > prev:
+                                    aptitudes[group_key] = lvl
+                except Exception:
+                    pass
+            elif key == 'MasteryByRoleID':
+                try:
+                    pay = memoryview(mv[q2:q2+kv_len])
+                    rp = 0
+                    mastered: List[str] = []
+                    cnt = None
+                    if rp + 4 <= len(pay):
+                        cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                    if cnt is not None and 0 <= cnt <= 256:
+                        for _ in range(cnt):
+                            if rp + 4 > len(pay):
+                                break
+                            glen = _st.unpack_from('<i', pay, rp)[0]; rp += 4
+                            if glen < 0 or rp + glen > len(pay):
+                                break
+                            role_id = bytes(pay[rp:rp+glen]).decode('utf-8', errors='ignore'); rp += glen
+                            mastered_flag = None
+                            if rp + 1 <= len(pay):
+                                mastered_flag = pay[rp] != 0; rp += 1
+                            if mastered_flag is None and rp + 4 <= len(pay):
+                                mastered_flag = _st.unpack_from('<i', pay, rp)[0] != 0; rp += 4
+                            if mastered_flag and role_id:
+                                mastered.append(role_id)
+                    if mastered:
+                        result['mastered_roles'] = mastered
+                except Exception:
+                    pass
+            q = q2 + kv_len
+
+        if aptitudes:
+            result['aptitudes'] = aptitudes
+        return result
+
+    def _parse_minion_modifiers(self, mv: memoryview, beh_start: int, beh_end: int) -> Dict[str, float]:
+        """Decode MinionModifiers/Modifiers for vitals (best-effort floats)."""
+        import struct as _st
+        vitals: Dict[str, float] = {}
+        label_map = {
+            'Calories': ('calories', 0.0, 1e9),
+            'Health': ('health', 0.0, 1000.0),
+            'Stress': ('stress', 0.0, 100.0),
+            'Stamina': ('stamina', 0.0, 100.0),
+            'Decor': ('decor', -1000.0, 1000.0),
+            'Temperature': ('temperature', 0.0, 1000.0),
+            'Breath': ('breath', 0.0, 100.0),
+            'Bladder': ('bladder', 0.0, 100.0),
+            'ImmuneLevel': ('immune_level', 0.0, 100.0),
+            'Toxicity': ('toxicity', 0.0, 100.0),
+            'RadiationBalance': ('radiation_balance', -10000.0, 10000.0),
+            'QualityOfLife': ('morale', -1000.0, 1000.0),
         }
-        self._KNOWN_EFFECT_IDS = {
-            'UncomfortableSleep','Sleep','NarcolepticSleep','RestfulSleep','AnewHope','Mourning','DisturbedSleep',
-            'NewCrewArrival','UnderWater','FullBladder','StressfulyEmptyingBladder','RedAlert','MentalBreak',
-            'CoolingDown','WarmingUp','Darkness','SteppedInContaminatedWater','WellFed','StaleFood',
-            'SmelledPutridOdour','Vomiting','DirtyHands','Unclean','LightWounds','ModerateWounds','SevereWounds',
-            'WasAttacked','SoreBack','WarmAir','ColdAir','Hypothermia','Hyperthermia','CenterOfAttention'
-        }
+        q = beh_start
+        while q + 8 <= beh_end:
+            name_s, q2 = self._read_klei_string(mv, q, beh_end)
+            if name_s is None:
+                q += 1
+                continue
+            if q2 + 4 > beh_end:
+                break
+            c_len = _st.unpack_from('<i', mv, q2)[0]
+            q2 += 4
+            if c_len < 0 or q2 + c_len > beh_end:
+                q = q2
+                continue
+            if name_s in label_map:
+                key, vmin, vmax = label_map[name_s]
+                val = self._scan_best_float32(mv, q2, q2 + c_len, vmin, vmax)
+                if val is not None:
+                    vitals[key] = float(val)
+            q = q2 + c_len
+        return vitals
     
     def parse_save_file(self, file_path: Path) -> ParseResult:
         """
@@ -91,10 +337,53 @@ class OniSaveParser:
                 result.success = True
                 result.save_game = save_game
                 result.parse_time_seconds = time.time() - start_time
+                # Decompress KSAV body at most once and cache
+                ksav_body = getattr(self, "_cached_sim_body", None)
+                if ksav_body is None:
+                    fb: bytes = getattr(self, "_last_file_bytes", b"")
+                    ksav_body = self._decompress_body_block(fb) if fb else None
+                    # Cache even if empty to avoid repeated work
+                    self._cached_sim_body = ksav_body or b""
                 # Extract key entities for convenience (duplicants)
                 try:
-                    minions = self.extract_minion_details(file_path)
-                    result.entities["duplicants"] = minions
+                    # Backward-compatible raw duplicant entries expected by tests
+                    raw = self.extract_minion_details(file_path)
+                    result.entities["duplicants"] = raw or []
+                    # Also compute canonical structured list
+                    def _canon(m: Dict[str, Any]) -> Dict[str, Any]:
+                        vitals: Dict[str, Any] = m.get("vitals", {}) if isinstance(m.get("vitals"), dict) else {}
+                        identity = {
+                            "name": m.get("name"),
+                            "gender": m.get("gender"),
+                            "arrival_time": int(m.get("arrival_time", 0) or 0),
+                        }
+                        position = {
+                            "x": float(m.get("x", 0.0)),
+                            "y": float(m.get("y", 0.0)),
+                            "z": float(m.get("z", 0.0)),
+                        }
+                        return {
+                            "identity": identity,
+                            "role": m.get("job", "NoRole") or "NoRole",
+                            "vitals": {
+                                "calories": vitals.get("calories"),
+                                "health": vitals.get("health"),
+                                "stress": vitals.get("stress"),
+                                "stamina": vitals.get("stamina"),
+                                "decor": vitals.get("decor"),
+                                "temperature": vitals.get("temperature"),
+                                "breath": vitals.get("breath"),
+                                "bladder": vitals.get("bladder"),
+                                "immune_level": vitals.get("immune_level"),
+                                "toxicity": vitals.get("toxicity"),
+                                "radiation_balance": vitals.get("radiation_balance"),
+                            },
+                            "aptitudes": m.get("aptitudes") or {},
+                            "traits": m.get("traits", []) or [],
+                            "effects": m.get("effects", []) or [],
+                            "position": position,
+                        }
+                    result.entities["duplicants_canonical"] = [_canon(m) for m in (raw or [])]
                 except Exception as _:
                     # Non-fatal if entity extraction fails
                     pass
@@ -111,36 +400,7 @@ class OniSaveParser:
                     if ogc is None:
                         # If not present yet, compute quick counts now from KSAV body
                         try:
-                            body = getattr(self, "_cached_sim_body", None)
-                            if body is None:
-                                fb: bytes = getattr(self, "_last_file_bytes", b"")
-                                if fb:
-                                    body = self._decompress_body_block(fb)
-                            counts = {}
-                            if body:
-                                import struct
-                                mv = memoryview(body)
-                                pos = body.find(b'KSAV')
-                                if pos != -1 and pos + 12 <= len(body):
-                                    p2 = pos + 4
-                                    _ = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
-                                    _ = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
-                                    gc = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
-                                    for _ in range(max(0, gc)):
-                                        if p2 + 4 > len(body):
-                                            break
-                                        nl = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
-                                        if nl < 0 or p2 + nl > len(body):
-                                            break
-                                        gname = bytes(mv[p2:p2+nl]).decode('utf-8', errors='ignore'); p2 += nl
-                                        if p2 + 8 > len(body):
-                                            break
-                                        ic = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
-                                        dl = struct.unpack_from('<i', mv, p2)[0]; p2 += 4
-                                        counts[gname] = int(ic)
-                                        p2 = p2 + max(0, dl)
-                                        if p2 > len(body):
-                                            break
+                            counts = self._extract_object_group_counts_from_body(ksav_body or b"")
                             if counts:
                                 result.entities['object_group_counts'] = counts
                         except Exception:
@@ -194,42 +454,12 @@ class OniSaveParser:
                 self.logger.info(f"Cycles: {save_game.header.num_cycles}")
                 self.logger.info(f"Duplicants: {save_game.header.num_duplicants}")
                 # Derive quick object group counts from decompressed body (best-effort)
-                try:
-                    body = getattr(self, "_cached_sim_body", None)
-                    if body is None:
-                        fb: bytes = getattr(self, "_last_file_bytes", b"")
-                        if fb:
-                            body = self._decompress_body_block(fb)
-                    if body:
-                        import struct
-                        mv = memoryview(body)
-                        pos = body.find(b'KSAV')
-                        if pos != -1 and pos + 12 <= len(body):
-                            p = pos + 4  # after 'KSAV'
-                            _maj = struct.unpack_from('<i', mv, p)[0]; p += 4
-                            _min = struct.unpack_from('<i', mv, p)[0]; p += 4
-                            group_count = struct.unpack_from('<i', mv, p)[0]; p += 4
-                            counts = {}
-                            for _ in range(max(0, group_count)):
-                                if p + 4 > len(body):
-                                    break
-                                name_len = struct.unpack_from('<i', mv, p)[0]; p += 4
-                                if name_len < 0 or p + name_len > len(body):
-                                    break
-                                name = bytes(mv[p:p+name_len]).decode('utf-8', errors='ignore'); p += name_len
-                                if p + 8 > len(body):
-                                    break
-                                instance_count = struct.unpack_from('<i', mv, p)[0]; p += 4
-                                data_length = struct.unpack_from('<i', mv, p)[0]; p += 4
-                                counts[name] = int(instance_count)
-                                # skip payload
-                                p = p + max(0, data_length)
-                                if p > len(body):
-                                    break
-                            if counts:
-                                result.entities.setdefault('object_group_counts', counts)
-                except Exception:
-                    pass
+                    try:
+                        counts = self._extract_object_group_counts_from_body(ksav_body or b"")
+                        if counts:
+                            result.entities.setdefault('object_group_counts', counts)
+                    except Exception:
+                        pass
             
         except Exception as e:
             self.logger.error(f"Error parsing save file: {e}")
@@ -254,93 +484,66 @@ class OniSaveParser:
 
     def extract_minion_details(self, file_path: Path) -> List[Dict[str, Any]]:
         """Extract duplicant positions and identity info (name, gender, arrival_time)."""
-        try:
-            file_bytes = file_path.read_bytes()
-        except Exception:
-            return []
-
-        body = self._decompress_body_block(file_bytes)
+        # Prefer cached body if available; decompress at most once
+        body = getattr(self, "_cached_sim_body", None)
+        if body is None or body == b"":
+            try:
+                file_bytes = file_path.read_bytes()
+            except Exception:
+                return []
+            body = self._decompress_body_block(file_bytes)
+            self._cached_sim_body = body or b""
         if not body:
             return []
         return self._extract_minion_details_from_body(body)
 
     def _parse_header_raw(self, data: bytes) -> Tuple[int, bool]:
         """Return (offset_after_header_json, is_compressed) without altering state."""
-        import struct
-        p = 0
-        mv = memoryview(data)
-        # buildVersion, headerSize, headerVersion
-        if len(data) < 12:
-            return 0, False
-        _build = struct.unpack_from('<I', mv, p)[0]; p += 4
-        header_size = struct.unpack_from('<I', mv, p)[0]; p += 4
-        header_version = struct.unpack_from('<I', mv, p)[0]; p += 4
-        is_compressed = False
-        if header_version >= 1:
-            if p + 4 > len(data):
-                return 0, False
-            is_compressed = struct.unpack_from('<I', mv, p)[0] != 0; p += 4
-        # JSON info
-        p_end = p + header_size
-        if p_end > len(data):
-            return 0, is_compressed
-        return p_end, is_compressed
+        return self._blocks.parse_header_raw(data)
 
     def _decompress_body_block(self, data: bytes) -> Optional[bytes]:
         """Find and decompress the main save body block (zlib) by scanning after header JSON.
 
         Returns decompressed bytes if successful, otherwise None.
         """
-        import zlib
-        start_after_header, _ = self._parse_header_raw(data)
-        search = data[start_after_header:]
-        # Scan for zlib headers
-        candidates = []
-        for sig in (b"\x78\x9c", b"\x78\xda", b"\x78\x01"):
-            idx = 0
-            while True:
-                pos = search.find(sig, idx)
-                if pos == -1:
-                    break
-                candidates.append(start_after_header + pos)
-                idx = pos + 1
-        for pos in sorted(set(candidates)):
-            try:
-                decompressed = zlib.decompress(data[pos:])
-                # Heuristic validation: decompressed should contain 'KSAV'
-                if b'KSAV' in decompressed:
-                    return decompressed
-            except Exception:
-                continue
-        return None
+        return self._blocks.decompress_body_block(data)
 
     def _iter_decompressed_blocks(self, data: bytes):
         """Yield all successfully decompressed zlib blocks after header JSON."""
-        import zlib
-        start_after_header, _ = self._parse_header_raw(data)
-        search = data[start_after_header:]
-        seen = set()
-        for sig in (b"\x78\x9c", b"\x78\xda", b"\x78\x01"):
-            idx = 0
-            while True:
-                pos = search.find(sig, idx)
-                if pos == -1:
-                    break
-                abs_pos = start_after_header + pos
-                if abs_pos in seen:
-                    idx = pos + 1
-                    continue
-                seen.add(abs_pos)
-                try:
-                    decompressed = zlib.decompress(data[abs_pos:])
-                    yield decompressed
-                except Exception:
-                    pass
-                idx = pos + 1
+        yield from self._blocks.iter_decompressed_blocks(data)
+
+    def _extract_object_group_counts_from_body(self, body: bytes) -> Dict[str, int]:
+        """Extract object-group instance counts from a decompressed KSAV body.
+
+        The KSAV section begins with the ASCII tag 'KSAV' followed by two int32
+        version fields and an int32 group count. Each group entry is encoded as:
+        - int32: UTF-8 name length N
+        - N bytes: name
+        - int32: instance_count
+        - int32: payload_length (bytes to skip)
+
+        Bounds are validated at each step; on any malformed segment, parsing
+        stops and the counts collected so far are returned.
+
+        Args:
+            body: Decompressed save body bytes.
+
+        Returns:
+            Mapping from group name to instance count. Empty if KSAV not found
+            or if parsing fails.
+        """
+        # Delegate to modular KSAVGroupCounter
+        return self._ksav_counter.extract_object_group_counts(body)
 
     def _finalize_metadata(self, file_bytes: bytes) -> SaveGameMetadata:
-        """Build SaveGameMetadata including block diagnostics and KSAV summary."""
+        """Build SaveGameMetadata including block diagnostics and KSAV summary.
+
+        Ensures `ksav_summary` always contains integer keys `group_count`
+        and `total_instances` even when KSAV is not found (defaults to 0).
+        """
         metadata = SaveGameMetadata()
+        # Initialize ksav_summary keys so consumers can rely on presence
+        metadata.ksav_summary = {"group_count": 0, "total_instances": 0}
         if not file_bytes:
             return metadata
         try:
@@ -603,219 +806,25 @@ class OniSaveParser:
                         if beh_end > len(body):
                             break
                         if beh_name == 'MinionIdentity':
-                            # Heuristic: first 4 fields are strings (name, nameStringKey, gender, genderStringKey),
-                            # then an int32 arrivalTime.
                             try:
-                                # Parse as a series of key/value payloads: [nameStr][len][payload]
-                                q = beh_start
-                                found_name = False
-                                found_gender = False
-                                while q < beh_end:
-                                    key, q2 = self._read_klei_string(mv, q, beh_end)
-                                    if key is None:
-                                        q += 1
-                                        continue
-                                    if q2 + 4 > beh_end:
-                                        break
-                                    kv_len = struct.unpack_from('<i', mv, q2)[0]
-                                    q2 += 4
-                                    if kv_len < 0 or q2 + kv_len > beh_end:
-                                        q = q2
-                                        continue
-                                    # Interpret payload based on key
-                                    if key in ('name', 'nameStringKey', 'gender', 'genderStringKey'):
-                                        # Read first Klei string from payload
-                                        try:
-                                            # Copy payload bytes for safe decoding
-                                            payload = bytes(mv[q2:q2+kv_len])
-                                            import struct as _st
-                                            if len(payload) >= 4:
-                                                slen = _st.unpack_from('<i', payload, 0)[0]
-                                                if 0 <= slen <= len(payload) - 4:
-                                                    s = payload[4:4+slen].decode('utf-8', errors='ignore')
-                                                    if key == 'name' and s and self._is_plausible_name(s):
-                                                        minion_info['name'] = s
-                                                        found_name = True
-                                                    elif key == 'gender' and s in ("MALE", "FEMALE", "NB"):
-                                                        minion_info['gender'] = s
-                                                        found_gender = True
-                                        except Exception:
-                                            pass
-                                    elif key == 'arrivalTime':
-                                        # arrivalTime may be stored as int32/int64/float
-                                        try:
-                                            if kv_len >= 4:
-                                                at32 = struct.unpack_from('<i', mv, q2)[0]
-                                                if 0 <= at32 < 10**10:
-                                                    minion_info['arrival_time'] = int(at32)
-                                            if 'arrival_time' not in minion_info and kv_len >= 8:
-                                                at64 = struct.unpack_from('<q', mv, q2)[0]
-                                                if 0 <= at64 < 10**12:
-                                                    minion_info['arrival_time'] = int(at64)
-                                            if 'arrival_time' not in minion_info and kv_len >= 4:
-                                                af32 = struct.unpack_from('<f', mv, q2)[0]
-                                                if 0.0 <= af32 < 10**10:
-                                                    minion_info['arrival_time'] = int(af32)
-                                            if 'arrival_time' not in minion_info and kv_len >= 8:
-                                                af64 = struct.unpack_from('<d', mv, q2)[0]
-                                                if 0.0 <= af64 < 10**12:
-                                                    minion_info['arrival_time'] = int(af64)
-                                        except Exception:
-                                            pass
-                                    elif key == 'voiceIdx':
-                                        # Not currently used
-                                        pass
-                                    # Advance to next kv
-                                    q = q2 + kv_len
-                                # Fallbacks if name/gender not found
-                                if not found_name:
-                                    strings = self._scan_klei_strings(mv, beh_start, beh_end, max_strings=32)
-                                    for s in strings:
-                                        if self._is_plausible_name(s):
-                                            minion_info['name'] = s
-                                            break
-                                # Fallback: positional decode (legacy layout)
-                                if 'arrival_time' not in minion_info:
-                                    try:
-                                        off = beh_start
-                                        nm, off = self._read_klei_string(mv, off, beh_end)
-                                        _nm_key, off = self._read_klei_string(mv, off, beh_end)
-                                        gender_s, off = self._read_klei_string(mv, off, beh_end)
-                                        _gender_key, off = self._read_klei_string(mv, off, beh_end)
-                                        if gender_s in ("MALE", "FEMALE", "NB") and 'gender' not in minion_info:
-                                            minion_info['gender'] = gender_s
-                                        if off + 4 <= beh_end:
-                                            at = struct.unpack_from('<i', mv, off)[0]; off += 4
-                                            if at >= 0:
-                                                minion_info['arrival_time'] = int(at)
-                                    except Exception:
-                                        pass
+                                ident = self._parse_minion_identity(mv, beh_start, beh_end)
+                                if ident.get('name'):
+                                    minion_info['name'] = ident['name']
+                                if ident.get('gender'):
+                                    minion_info['gender'] = ident['gender']
+                                if ident.get('arrival_time') is not None:
+                                    minion_info['arrival_time'] = int(ident['arrival_time'])
                             except Exception:
                                 pass
                         elif beh_name in ('MinionResume',):
-                            # Try to extract current role/job from strings in this block
                             try:
-                                # Parse key/value payloads within MinionResume
-                                q = beh_start
-                                role_val = None
-                                # Prepare aptitude accumulator
-                                aptitudes: Dict[str, int] = {}
-                                # Known skill groups (lowercase keys)
-                                known_groups = {
-                                    'building': 'Building',
-                                    'digging': 'Digging',
-                                    'mining': 'Digging',
-                                    'research': 'Research',
-                                    'cooking': 'Cooking',
-                                    'farming': 'Farming',
-                                    'ranching': 'Ranching',
-                                    'doctoring': 'Doctoring',
-                                    'medical': 'Doctoring',
-                                    'artist': 'Art',
-                                    'operating': 'Operating',
-                                    'hauling': 'Hauling',
-                                    'tidying': 'Tidying',
-                                    'engineering': 'Engineering',
-                                    'supplying': 'Hauling',
-                                }
-                                while q < beh_end:
-                                    key, q2 = self._read_klei_string(mv, q, beh_end)
-                                    if key is None:
-                                        q += 1
-                                        continue
-                                    if q2 + 4 > beh_end:
-                                        break
-                                    kv_len = struct.unpack_from('<i', mv, q2)[0]
-                                    q2 += 4
-                                    if kv_len < 0 or q2 + kv_len > beh_end:
-                                        q = q2
-                                        continue
-                                    if key == 'currentRole':
-                                        try:
-                                            payload = bytes(mv[q2:q2+kv_len])
-                                            import struct as _st
-                                            if len(payload) >= 4:
-                                                slen = _st.unpack_from('<i', payload, 0)[0]
-                                                if 0 <= slen <= len(payload) - 4:
-                                                    s = payload[4:4+slen].decode('utf-8', errors='ignore')
-                                                    if s:
-                                                        role_val = s
-                                        except Exception:
-                                            pass
-                                    elif key == 'AptitudeBySkillGroup':
-                                        # Attempt to parse pairs of (group, level)
-                                        try:
-                                            import struct as _st
-                                            pay = memoryview(mv[q2:q2+kv_len])
-                                            rp = 0
-                                            cnt = None
-                                            if rp + 4 <= len(pay):
-                                                cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
-                                            # Guard: if count not plausible, ignore structured parse
-                                            if cnt is not None and 0 <= cnt <= 128:
-                                                for _ in range(cnt):
-                                                    # Read group name as Klei string (best effort)
-                                                    if rp + 4 > len(pay):
-                                                        break
-                                                    glen = _st.unpack_from('<i', pay, rp)[0]; rp += 4
-                                                    if glen < 0 or rp + glen > len(pay):
-                                                        break
-                                                    graw = bytes(pay[rp:rp+glen]).decode('utf-8', errors='ignore'); rp += glen
-                                                    # Read numeric level (try int32 then float32)
-                                                    lvl = None
-                                                    if rp + 4 <= len(pay):
-                                                        cand = _st.unpack_from('<i', pay, rp)[0]
-                                                        if 0 <= cand <= 10:
-                                                            lvl = int(cand); rp += 4
-                                                    if lvl is None and rp + 4 <= len(pay):
-                                                        fv = _st.unpack_from('<f', pay, rp)[0]
-                                                        if 0.0 <= fv <= 10.0:
-                                                            lvl = int(round(fv)); rp += 4
-                                                    if lvl is None:
-                                                        # Skip 4 bytes to avoid infinite loop
-                                                        rp = min(len(pay), rp + 4)
-                                                        continue
-                                                    group_key = map_group(graw)
-                                                    if group_key:
-                                                        prev = aptitudes.get(group_key, 0)
-                                                        if lvl > prev:
-                                                            aptitudes[group_key] = lvl
-                                        except Exception:
-                                            pass
-                                    elif key == 'MasteryByRoleID':
-                                        # Parse mastered roles: array of (roleId, bool)
-                                        try:
-                                            import struct as _st
-                                            pay = memoryview(mv[q2:q2+kv_len])
-                                            rp = 0
-                                            mastered: List[str] = []
-                                            cnt = None
-                                            if rp + 4 <= len(pay):
-                                                cnt = _st.unpack_from('<i', pay, rp)[0]; rp += 4
-                                            if cnt is not None and 0 <= cnt <= 256:
-                                                for _ in range(cnt):
-                                                    if rp + 4 > len(pay):
-                                                        break
-                                                    glen = _st.unpack_from('<i', pay, rp)[0]; rp += 4
-                                                    if glen < 0 or rp + glen > len(pay):
-                                                        break
-                                                    role_id = bytes(pay[rp:rp+glen]).decode('utf-8', errors='ignore'); rp += glen
-                                                    # bool may be 1 byte or 4-byte int; try both
-                                                    mastered_flag = None
-                                                    if rp + 1 <= len(pay):
-                                                        mastered_flag = pay[rp] != 0; rp += 1
-                                                    if mastered_flag is None and rp + 4 <= len(pay):
-                                                        mastered_flag = _st.unpack_from('<i', pay, rp)[0] != 0; rp += 4
-                                                    if mastered_flag and role_id:
-                                                        mastered.append(role_id)
-                                            if mastered:
-                                                minion_info.setdefault('mastered_roles', mastered)
-                                        except Exception:
-                                            pass
-                                    # advance
-                                    q = q2 + kv_len
-                                if role_val:
-                                    minion_info.setdefault('job', role_val)
+                                resume = self._parse_minion_resume(mv, beh_start, beh_end)
+                                if resume.get('currentRole'):
+                                    minion_info.setdefault('job', resume['currentRole'])
+                                if resume.get('aptitudes'):
+                                    minion_info.setdefault('aptitudes', resume['aptitudes'])
+                                if resume.get('mastered_roles'):
+                                    minion_info.setdefault('mastered_roles', resume['mastered_roles'])
                             except Exception:
                                 pass
                             # Secondary pass: scan strings and raw payload to derive aptitudes like Building1, Hauling2, Mining3
@@ -1085,43 +1094,10 @@ class OniSaveParser:
                             except Exception:
                                 pass
                         elif beh_name in ('MinionModifiers', 'Modifiers'):
-                            # Extract some vitals from known amount names
                             try:
-                                vitals = minion_info.setdefault('vitals', {})
-                                label_map = {
-                                    'Calories': ('calories', 0.0, 1e9),
-                                    'Health': ('health', 0.0, 1000.0),
-                                    'Stress': ('stress', 0.0, 100.0),
-                                    'Stamina': ('stamina', 0.0, 100.0),
-                                    'Decor': ('decor', -1000.0, 1000.0),
-                                    'Temperature': ('temperature', 0.0, 1000.0),
-                                    'Breath': ('breath', 0.0, 100.0),
-                                    'Bladder': ('bladder', 0.0, 100.0),
-                                    'ImmuneLevel': ('immune_level', 0.0, 100.0),
-                                    'Toxicity': ('toxicity', 0.0, 100.0),
-                                    'RadiationBalance': ('radiation_balance', -10000.0, 10000.0),
-                                    'QualityOfLife': ('morale', -1000.0, 1000.0),
-                                }
-                                q = beh_start
-                                while q + 8 <= beh_end:
-                                    name_s, q2 = self._read_klei_string(mv, q, beh_end)
-                                    if name_s is None:
-                                        q += 1
-                                        continue
-                                    if q2 + 4 > beh_end:
-                                        break
-                                    c_len = struct.unpack_from('<i', mv, q2)[0]
-                                    q2 += 4
-                                    if c_len < 0 or q2 + c_len > beh_end:
-                                        q = q2
-                                        continue
-                                    # Now [q2, q2+c_len) is the modifier payload; pick first plausible float
-                                    if name_s in label_map:
-                                        key, vmin, vmax = label_map[name_s]
-                                        val = self._scan_best_float32(mv, q2, q2 + c_len, vmin, vmax)
-                                        if val is not None:
-                                            vitals[key] = float(val)
-                                    q = q2 + c_len
+                                vit = self._parse_minion_modifiers(mv, beh_start, beh_end)
+                                if vit:
+                                    minion_info.setdefault('vitals', {}).update(vit)
                             except Exception:
                                 pass
                         # Skip to end of behavior block
@@ -1564,12 +1540,34 @@ class OniSaveParser:
             # Parse header first (contains version and other metadata)
             save_game.header = self._parse_header(reader, result)
             
-            # Extract version from header and validate
-            if hasattr(save_game.header, 'game_info') and save_game.header.game_info:
-                major = save_game.header.game_info.get('saveMajorVersion', 7)
-                minor = save_game.header.game_info.get('saveMinorVersion', 36)
-                save_game.version = SaveGameVersion(major=major, minor=minor)
-                self._validate_version(save_game.version)
+            # Extract version from header and validate; fallback to KSAV if missing
+            major = 7
+            minor = 36
+            gi = getattr(save_game.header, 'game_info', {}) or {}
+            try:
+                if 'saveMajorVersion' in gi and 'saveMinorVersion' in gi:
+                    major = int(gi.get('saveMajorVersion', major))
+                    minor = int(gi.get('saveMinorVersion', minor))
+                else:
+                    # Fallback: inspect KSAV header from decompressed body
+                    try:
+                        body = self._decompress_body_block(file_data)
+                    except Exception:
+                        body = None
+                    if body:
+                        import struct
+                        mv = memoryview(body)
+                        pos = body.find(b'KSAV')
+                        if pos != -1 and pos + 12 <= len(body):
+                            p = pos + 4
+                            major = int(struct.unpack_from('<i', mv, p)[0]); p += 4
+                            minor = int(struct.unpack_from('<i', mv, p)[0]); p += 4
+                        # Emit a warning if header lacked versions and we had to fallback
+                        result.add_warning("Header missing saveMajorVersion/saveMinorVersion; used KSAV fallback")
+            except Exception:
+                pass
+            save_game.version = SaveGameVersion(major=major, minor=minor)
+            self._validate_version(save_game.version)
             
             # Parse remaining sections in order
             save_game.templates = self._parse_templates(reader, result)
@@ -1612,7 +1610,12 @@ class OniSaveParser:
             )
     
     def _parse_header(self, reader: BinaryReader, result: ParseResult) -> SaveGameHeader:
-        """Parse save file header based on RoboPhred's format."""
+        """Parse save file header JSON fully and normalize key fields.
+
+        Populates `SaveGame.header` including `cluster_id`, `num_cycles`,
+        `num_duplicants`, and DLC/mod flags when present. Also updates
+        `self.last_game_info` for downstream heuristics.
+        """
         import json
         
         header = SaveGameHeader()
@@ -1640,9 +1643,32 @@ class OniSaveParser:
             
             # Populate header
             header.game_info = game_info
-            header.cluster_id = game_info.get('clusterId', '')
-            header.num_cycles = game_info.get('numberOfCycles', 0)
-            header.num_duplicants = game_info.get('numberOfDuplicants', 0)
+            # cluster id
+            header.cluster_id = str(game_info.get('clusterId') or game_info.get('ClusterId') or "")
+            # numbers with normalization and non-negative guard
+            def _nn_int(val: Any) -> int:
+                try:
+                    iv = int(val)
+                    return iv if iv >= 0 else 0
+                except Exception:
+                    return 0
+            header.num_cycles = _nn_int(game_info.get('numberOfCycles') or game_info.get('cycles') or 0)
+            header.num_duplicants = _nn_int(game_info.get('numberOfDuplicants') or game_info.get('duplicants') or 0)
+
+            # DLC flags
+            dlc_ids = game_info.get('dlcIds') or game_info.get('DlcIds') or []
+            if isinstance(dlc_ids, str):
+                dlc_ids = [dlc_ids]
+            if not isinstance(dlc_ids, list):
+                dlc_ids = []
+            header.dlc_ids = [str(d) for d in dlc_ids]
+            # Normalize a boolean has_dlc based on presence of any dlc id or known flags
+            has_dlc_flag = bool(game_info.get('hasDlc') or game_info.get('hasDLc') or game_info.get('hasDLC') or game_info.get('enableDlc') or game_info.get('expansionEnabled'))
+            header.has_dlc = has_dlc_flag or (len(header.dlc_ids) > 0)
+
+            # Mod flags
+            mods_info = game_info.get('mods') or game_info.get('Mods') or game_info.get('enabledMods') or []
+            header.has_mods = bool(mods_info) and (isinstance(mods_info, (list, dict)))
             
             self.logger.info(f"Parsed header - Version: {header_version}, Compressed: {is_compressed}")
             self.logger.info(f"Game: {game_info.get('baseName', 'Unknown')}, Cycles: {header.num_cycles}")
@@ -1653,6 +1679,16 @@ class OniSaveParser:
                 'headerVersion': header_version,
                 'isCompressed': is_compressed
             })
+            # Version fields into header.game_info if present (some saves include these)
+            # Do not fail if absent; downstream will default
+            if 'saveMajorVersion' not in header.game_info:
+                mv = game_info.get('saveMajorVersion')
+                if isinstance(mv, int):
+                    header.game_info['saveMajorVersion'] = mv
+            if 'saveMinorVersion' not in header.game_info:
+                mv2 = game_info.get('saveMinorVersion')
+                if isinstance(mv2, int):
+                    header.game_info['saveMinorVersion'] = mv2
             # Keep a ref for heuristics in later sections
             self.last_game_info = game_info
             

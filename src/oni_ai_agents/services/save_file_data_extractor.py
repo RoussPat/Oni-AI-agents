@@ -47,46 +47,9 @@ class SaveFileDataExtractor:
 
         save_game = result.save_game
         game_info = save_game.header.game_info
-        # Extract duplicant entity details (heuristic extractor for now)
+        # Extract duplicant entity details (legacy list; canonical lives in parser entities for now)
         raw_minions = result.entities.get("duplicants") or self._parser.extract_minion_details(save_file_path)
-
-        def _map_minion(m: Dict[str, Any]) -> Dict[str, Any]:
-            vitals: Dict[str, Any] = m.get("vitals", {}) if isinstance(m.get("vitals"), dict) else {}
-            identity: Dict[str, Any] = {
-                "name": m.get("name"),
-                "gender": m.get("gender"),
-                "arrival_time": m.get("arrival_time", 0),
-            }
-            # Optional position if available
-            position: Dict[str, float] = {
-                "x": float(m.get("x", 0.0)),
-                "y": float(m.get("y", 0.0)),
-                "z": float(m.get("z", 0.0)),
-            }
-            entry: Dict[str, Any] = {
-                "identity": identity,
-                "role": m.get("job", "NoRole"),
-                "vitals": {
-                    "calories": vitals.get("calories"),
-                    "health": vitals.get("health"),
-                    "stress": vitals.get("stress"),
-                    "stamina": vitals.get("stamina"),
-                    "decor": vitals.get("decor"),
-                    "temperature": vitals.get("temperature"),
-                    "breath": vitals.get("breath"),
-                    "bladder": vitals.get("bladder"),
-                    "immune_level": vitals.get("immune_level"),
-                    "toxicity": vitals.get("toxicity"),
-                    "radiation_balance": vitals.get("radiation_balance"),
-                },
-                "traits": m.get("traits", []) or [],
-                "effects": m.get("effects", []) or [],
-                "aptitudes": m.get("aptitudes") or {},
-                "position": position,
-            }
-            return entry
-
-        duplicant_list = [_map_minion(m) for m in (raw_minions or [])]
+        duplicant_list = raw_minions or []
 
         # Minimal sections derived from header until full parsing is implemented
         resources_section = {

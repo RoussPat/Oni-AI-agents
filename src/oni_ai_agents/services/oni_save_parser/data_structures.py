@@ -20,11 +20,26 @@ class Vector3:
 
 @dataclass
 class SaveGameHeader:
-    """Header information from save file."""
+    """Header information from save file.
+
+    Attributes
+    ----------
+    game_info: Raw header JSON preserved for consumers.
+    cluster_id: Cluster/world identifier.
+    num_cycles: Current cycle count (non-negative).
+    num_duplicants: Current duplicant count (non-negative).
+    has_dlc: Whether any DLC appears enabled in the header.
+    dlc_ids: List of DLC identifiers from the header (may be empty).
+    has_mods: Whether any mods appear enabled in the header.
+    """
     game_info: Dict[str, Any] = field(default_factory=dict)
     cluster_id: str = ""
     num_cycles: int = 0
     num_duplicants: int = 0
+    # Normalized convenience flags derived from header JSON
+    has_dlc: bool = False
+    dlc_ids: List[str] = field(default_factory=list)
+    has_mods: bool = False
 
 
 @dataclass

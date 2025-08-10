@@ -1,15 +1,13 @@
 [tool.black]
 line-length = 100
 target-version = ["py311"]
-include = '\\.pyi?$'
-exclude = '''
-/(
-  build
-| dist
-| venv
-| \.venv
-)/
-'''
+include = "\.(py|pyi)$"
+exclude = [
+  "build/",
+  "dist/",
+  "venv/",
+  "\.venv/",
+]
 
 [tool.isort]
 profile = "black"

@@ -48,7 +48,6 @@ Each decision follows this format:
 **Consequences**: Stable builds; controlled updates; clear workflow for dependency changes.
 
 ---
-
 ## 🐍 **Language Selection**
 
 **Date**: 2025-08-07 19:50  

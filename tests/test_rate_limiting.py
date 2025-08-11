@@ -2,16 +2,18 @@
 Tests for rate limiting functionality.
 """
 
-import pytest
 import asyncio
 import time
-from src.oni_ai_agents.models.rate_limiter import (
-    RateLimiter, 
-    RateLimitConfig, 
-    RateLimitStrategy,
-    RateLimitedModel
-)
+
+import pytest
+
 from src.oni_ai_agents.models.local_model import LocalModel
+from src.oni_ai_agents.models.rate_limiter import (
+    RateLimitConfig,
+    RateLimitedModel,
+    RateLimiter,
+    RateLimitStrategy,
+)
 
 
 class TestRateLimiter:
@@ -171,7 +173,7 @@ class TestRateLimitedModel:
 async def test_model_factory_with_rate_limiting():
     """Test model factory with rate limiting configuration."""
     from src.oni_ai_agents.models.model_factory import ModelFactory
-    
+
     # Create model with rate limiting
     config = {
         "delay": 0.01,

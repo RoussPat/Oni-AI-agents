@@ -228,6 +228,24 @@ flake8 src/ tests/
 mypy src/
 ```
 
+### CLI & Contract v0.1
+
+Generate a stable JSON contract from a `.sav`:
+
+```bash
+python scripts/parse_save.py test_data/clone_laboratory.sav --out - --pretty --quiet
+# or write to file
+python scripts/parse_save.py test_data/clone_laboratory.sav --out test_data/analysis_results/parse_results.json --pretty
+```
+
+Top-level JSON keys:
+- metadata: version, cycles, duplicant_count, base_name, cluster_id, full `game_info`
+- duplicants: count, list of entries with identity, role, vitals, traits, effects, aptitudes, position
+- world_grid_summary: width, height, cell_count, histograms, breathable_percent, warnings
+- object_group_counts: counts by KSAV group
+
+See `docs/Save_Contract_v0.1.md` for details and stability notes.
+
 ### Adding New Agents
 
 1. Create a new agent class inheriting from `Agent`

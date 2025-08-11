@@ -13,7 +13,6 @@ import pytest
 
 from src.oni_ai_agents.services.save_file_data_extractor import SaveFileDataExtractor
 
-
 SAVE_PATH = Path("test_data/clone_laboratory.sav")
 
 

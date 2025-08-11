@@ -8,8 +8,8 @@ and ensure fair usage across multiple agents.
 import asyncio
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Any
 from enum import Enum
+from typing import Any, Dict, Optional
 
 
 class RateLimitStrategy(Enum):

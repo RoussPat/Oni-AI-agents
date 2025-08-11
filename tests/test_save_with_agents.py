@@ -6,17 +6,18 @@ Tests the parsed save file data with our specialized observer agents.
 """
 
 import asyncio
-import pytest
 import json
 import logging
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-from src.oni_ai_agents.services.oni_save_parser import OniSaveParser
-from src.oni_ai_agents.agents.resource_observer_agent import ResourceObserverAgent
+import pytest
+
 from src.oni_ai_agents.agents.duplicant_observer_agent import DuplicantObserverAgent
-from src.oni_ai_agents.agents.threat_observer_agent import ThreatObserverAgent
 from src.oni_ai_agents.agents.image_observer_agent import ImageObserverAgent
+from src.oni_ai_agents.agents.resource_observer_agent import ResourceObserverAgent
+from src.oni_ai_agents.agents.threat_observer_agent import ThreatObserverAgent
+from src.oni_ai_agents.services.oni_save_parser import OniSaveParser
 
 
 @pytest.mark.asyncio

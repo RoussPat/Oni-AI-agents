@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-10T13:36:02",
+  "timestamp": "2025-08-11T17:15:14.843778",
   "file_path": "test_data/clone_laboratory.sav",
   "file_size_bytes": 2394836,
   "success": true,
@@ -11,7 +11,7 @@
     "Game objects parsing not yet implemented",
     "Game data parsing not yet implemented"
   ],
-  "parse_time_seconds": 8.466902732849121,
+  "parse_time_seconds": 6.90110969543457,
   "save_summary": {
     "version": "7.36",
     "cycles": 151,
@@ -45,11 +45,6 @@
         "gender": "MALE",
         "arrival_time": 0,
         "job": "Builder",
-        "aptitudes": {
-          "Building": 3,
-          "Hauling": 2,
-          "Mining": 3
-        },
         "traits": []
       },
       {
@@ -73,12 +68,6 @@
         "gender": "MALE",
         "arrival_time": 0,
         "job": "Resea",
-        "aptitudes": {
-          "Research": 2,
-          "Hauling": 2,
-          "Basekeeping": 2,
-          "Mining": 1
-        },
         "traits": []
       },
       {
@@ -102,12 +91,6 @@
         "gender": "FEMALE",
         "arrival_time": 1073741824,
         "job": "Pyrotechnician",
-        "aptitudes": {
-          "Hauling": 2,
-          "Basekeeping": 2,
-          "Technicals": 2,
-          "Engineering": 1
-        },
         "traits": []
       },
       {
@@ -130,13 +113,6 @@
         "name": "Leira",
         "gender": "FEMALE",
         "arrival_time": 1084227584,
-        "aptitudes": {
-          "Technicals": 2,
-          "Hauling": 2,
-          "Engineering": 1,
-          "Art": 3,
-          "Management": 1
-        },
         "job": "Artist",
         "traits": []
       },
@@ -161,15 +137,6 @@
         "gender": "NB",
         "arrival_time": 1090519040,
         "job": "Engineer",
-        "aptitudes": {
-          "Art": 1,
-          "Hauling": 2,
-          "Basekeeping": 1,
-          "Technicals": 2,
-          "Engineering": 1,
-          "Management": 1,
-          "Suits": 1
-        },
         "traits": []
       },
       {
@@ -193,14 +160,6 @@
         "gender": "MALE",
         "arrival_time": 1102577664,
         "job": "Engineer",
-        "aptitudes": {
-          "Hauling": 2,
-          "Technicals": 2,
-          "Engineering": 1,
-          "Mining": 1,
-          "Management": 1,
-          "Suits": 1
-        },
         "traits": []
       },
       {
@@ -224,12 +183,6 @@
         "gender": "MALE",
         "arrival_time": 1105723392,
         "job": "Ranc",
-        "aptitudes": {
-          "Farming": 1,
-          "Ranching": 2,
-          "Hauling": 2,
-          "Basekeeping": 2
-        },
         "traits": []
       },
       {
@@ -253,11 +206,6 @@
         "gender": "FEMALE",
         "arrival_time": 1107296256,
         "job": "Miner",
-        "aptitudes": {
-          "Mining": 3,
-          "Cooking": 2,
-          "Hauling": 2
-        },
         "traits": []
       },
       {
@@ -281,11 +229,6 @@
         "gender": "NB",
         "arrival_time": 1109131264,
         "job": "Farmer",
-        "aptitudes": {
-          "Farming": 3,
-          "Hauling": 2,
-          "Mining": 1
-        },
         "traits": []
       },
       {
@@ -309,10 +252,6 @@
         "gender": "MALE",
         "arrival_time": 1118437376,
         "job": "Doctor",
-        "aptitudes": {
-          "MedicalAid": 3,
-          "Hauling": 2
-        },
         "traits": []
       },
       {
@@ -336,11 +275,328 @@
         "gender": "MALE",
         "arrival_time": 1121452032,
         "job": "Cook",
-        "aptitudes": {
-          "Cooking": 2,
-          "Hauling": 2
-        },
         "traits": []
+      }
+    ],
+    "duplicants_canonical": [
+      {
+        "identity": {
+          "name": "Joshua",
+          "gender": "MALE",
+          "arrival_time": 0
+        },
+        "role": "Builder",
+        "vitals": {
+          "calories": 2445434.25,
+          "health": null,
+          "stress": 1.616665244102478,
+          "stamina": 70.10939025878906,
+          "decor": -17.500001907348633,
+          "temperature": 310.15069580078125,
+          "breath": 100.0,
+          "bladder": 51.89955139160156,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 72.5,
+          "y": 42.0099983215332,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Abe",
+          "gender": "MALE",
+          "arrival_time": 0
+        },
+        "role": "Resea",
+        "vitals": {
+          "calories": 3453515.5,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 86.07157897949219,
+          "decor": -17.666664123535156,
+          "temperature": 310.1492004394531,
+          "breath": 100.0,
+          "bladder": 54.666175842285156,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 37.5,
+          "y": 126.01000213623047,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Catalina",
+          "gender": "FEMALE",
+          "arrival_time": 1073741824
+        },
+        "role": "Pyrotechnician",
+        "vitals": {
+          "calories": 3428520.0,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 72.37646484375,
+          "decor": -12.166672706604004,
+          "temperature": 310.1507263183594,
+          "breath": 100.0,
+          "bladder": 57.1661376953125,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 74.5,
+          "y": 115.01000213623047,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Leira",
+          "gender": "FEMALE",
+          "arrival_time": 1084227584
+        },
+        "role": "Artist",
+        "vitals": {
+          "calories": 3458847.75,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 72.88973999023438,
+          "decor": -0.8334808349609375,
+          "temperature": 310.1504211425781,
+          "breath": 100.0,
+          "bladder": 54.132850646972656,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 78.5,
+          "y": 110.01000213623047,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Nails",
+          "gender": "NB",
+          "arrival_time": 1090519040
+        },
+        "role": "Engineer",
+        "vitals": {
+          "calories": 3419190.0,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 72.09649658203125,
+          "decor": -9.5,
+          "temperature": 310.14984130859375,
+          "breath": 100.0,
+          "bladder": 58.132789611816406,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 36.5,
+          "y": 126.01000213623047,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Nikola",
+          "gender": "MALE",
+          "arrival_time": 1102577664
+        },
+        "role": "Engineer",
+        "vitals": {
+          "calories": 3433855.25,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 72.30647277832031,
+          "decor": -26.166669845581055,
+          "temperature": 310.14923095703125,
+          "breath": 100.0,
+          "bladder": 56.66614532470703,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 36.05000686645508,
+          "y": 131.00999450683594,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Ren",
+          "gender": "MALE",
+          "arrival_time": 1105723392
+        },
+        "role": "Ranc",
+        "vitals": {
+          "calories": 2424438.5,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 72.23648071289062,
+          "decor": -53.49998092651367,
+          "temperature": 310.1506652832031,
+          "breath": 100.0,
+          "bladder": 51.699554443359375,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 73.5,
+          "y": 117.51412963867188,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Lindsay",
+          "gender": "FEMALE",
+          "arrival_time": 1107296256
+        },
+        "role": "Miner",
+        "vitals": {
+          "calories": 1449446.125,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 73.51966857910156,
+          "decor": 38.5,
+          "temperature": 310.1508483886719,
+          "breath": 100.0,
+          "bladder": 46.132972717285156,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 79.72417449951172,
+          "y": 126.01000213623047,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Otto",
+          "gender": "NB",
+          "arrival_time": 1109131264
+        },
+        "role": "Farmer",
+        "vitals": {
+          "calories": 1443021.625,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 75.78274536132812,
+          "decor": 41.16667175292969,
+          "temperature": 310.1491394042969,
+          "breath": 100.0,
+          "bladder": 51.36622619628906,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 81.5,
+          "y": 126.01000213623047,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Steve",
+          "gender": "MALE",
+          "arrival_time": 1118437376
+        },
+        "role": "Doctor",
+        "vitals": {
+          "calories": 3426188.75,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 72.23648071289062,
+          "decor": 41.16667175292969,
+          "temperature": 310.1491394042969,
+          "breath": 100.0,
+          "bladder": 57.43280029296875,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 81.5,
+          "y": 126.01000213623047,
+          "z": -25.5
+        }
+      },
+      {
+        "identity": {
+          "name": "Ashkan",
+          "gender": "MALE",
+          "arrival_time": 1121452032
+        },
+        "role": "Cook",
+        "vitals": {
+          "calories": 3438185.75,
+          "health": null,
+          "stress": 0.0,
+          "stamina": 72.25981140136719,
+          "decor": -63.5,
+          "temperature": 310.1501159667969,
+          "breath": 100.0,
+          "bladder": 56.199485778808594,
+          "immune_level": 100.0,
+          "toxicity": 0.0,
+          "radiation_balance": 0.0
+        },
+        "aptitudes": {},
+        "traits": [],
+        "effects": [],
+        "position": {
+          "x": 32.5,
+          "y": 126.01000213623047,
+          "z": -25.5
+        }
       }
     ],
     "object_group_counts": {

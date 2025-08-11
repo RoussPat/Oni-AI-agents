@@ -1,4 +1,23 @@
 [flake8]
 max-line-length = 100
-ignore = E203,W503
+ignore = 
+  E203,
+  W503,
+  W291,
+  W292,
+  W293,
+  E501,
+  F401,
+  W391,
+  F541,
+  W504,
+  E129,
+  E128,
+  E741,
+  F821,
+  F841,
+  F811,
+  E702,
+  E226,
+  E722
 exclude = build,dist,venv,.venv

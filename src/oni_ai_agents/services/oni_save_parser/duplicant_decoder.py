@@ -1,7 +1,8 @@
 """
 Duplicant decoder utilities.
 
-Extract duplicant identities, roles, vitals, traits, and effects from KSAV body.
+Extract duplicant identities, roles, vitals, traits, and effects from KSAV
+body.
 """
 
 from __future__ import annotations
@@ -19,20 +20,24 @@ class DuplicantDecoder:
         self._known_effects: Set[str] = load_known_effect_ids()
 
     # ---- small helpers mirroring existing parser private methods ----
-    def _read_klei_string(self, mv: memoryview, off: int, end: int) -> Tuple[Optional[str], int]:
+    def _read_klei_string(
+        self, mv: memoryview, off: int, end: int
+    ) -> Tuple[Optional[str], int]:
         import struct
 
         if off + 4 > end:
             return None, off
-        l = struct.unpack_from("<i", mv, off)[0]
+        length = struct.unpack_from("<i", mv, off)[0]
         off += 4
-        if l < 0 or off + l > end:
+        if length < 0 or off + length > end:
             return None, off
-        s = bytes(mv[off : off + l]).decode("utf-8", errors="ignore")
-        off += l
+        s = bytes(mv[off:off + length]).decode("utf-8", errors="ignore")
+        off += length
         return s, off
 
-    def _scan_klei_strings(self, mv: memoryview, start: int, end: int, max_strings: int = 32) -> List[str]:
+    def _scan_klei_strings(
+        self, mv: memoryview, start: int, end: int, max_strings: int = 32
+    ) -> List[str]:
         import struct
 
         strings: List[str] = []
@@ -40,13 +45,13 @@ class DuplicantDecoder:
         scanned = 0
         while p + 4 <= end and scanned < max_strings:
             try:
-                l = struct.unpack_from("<i", mv, p)[0]
-                if l < 0 or l > (end - p - 4):
+                strlen = struct.unpack_from("<i", mv, p)[0]
+                if strlen < 0 or strlen > (end - p - 4):
                     p += 1
                     continue
                 p += 4
-                s = bytes(mv[p : p + l]).decode("utf-8", errors="ignore")
-                p += l
+                s = bytes(mv[p:p + strlen]).decode("utf-8", errors="ignore")
+                p += strlen
                 if s:
                     strings.append(s)
                     scanned += 1
@@ -66,7 +71,14 @@ class DuplicantDecoder:
 
         return re.fullmatch(r"[A-Za-z][A-Za-z '\-]*", s) is not None
 
-    def _scan_best_float32(self, mv: memoryview, start: int, end: int, min_val: float, max_val: float) -> Optional[float]:
+    def _scan_best_float32(
+        self,
+        mv: memoryview,
+        start: int,
+        end: int,
+        min_val: float,
+        max_val: float,
+    ) -> Optional[float]:
         import math
         import struct
 
@@ -83,7 +95,9 @@ class DuplicantDecoder:
         return best
 
     # ---- behavior decoders ----
-    def _parse_minion_identity(self, mv: memoryview, beh_start: int, beh_end: int) -> Dict[str, Any]:
+    def _parse_minion_identity(
+        self, mv: memoryview, beh_start: int, beh_end: int
+    ) -> Dict[str, Any]:
         import struct as _st
 
         identity: Dict[str, Any] = {}
@@ -138,13 +152,15 @@ class DuplicantDecoder:
             q = q2 + kv_len
 
         if not found_name:
-            for s in self._scan_klei_strings(mv, beh_start, beh_end, max_strings=32):
-                if self._is_plausible_name(s):
-                    identity["name"] = s
+            for cand in self._scan_klei_strings(mv, beh_start, beh_end, max_strings=32):
+                if self._is_plausible_name(cand):
+                    identity["name"] = cand
                     break
         return identity
 
-    def _parse_minion_resume(self, mv: memoryview, beh_start: int, beh_end: int) -> Dict[str, Any]:
+    def _parse_minion_resume(
+        self, mv: memoryview, beh_start: int, beh_end: int
+    ) -> Dict[str, Any]:
         import struct as _st
 
         result: Dict[str, Any] = {}
@@ -300,7 +316,9 @@ class DuplicantDecoder:
             result["aptitudes"] = aptitudes
         return result
 
-    def _parse_minion_modifiers(self, mv: memoryview, beh_start: int, beh_end: int) -> Dict[str, float]:
+    def _parse_minion_modifiers(
+        self, mv: memoryview, beh_start: int, beh_end: int
+    ) -> Dict[str, float]:
         import struct as _st
 
         vitals: Dict[str, float] = {}
@@ -351,9 +369,9 @@ class DuplicantDecoder:
         p = ksav + 4
         if p + 8 > len(body):
             return []
-        _ver_major = struct.unpack_from("<i", mv, p)[0]
+        _ = struct.unpack_from("<i", mv, p)[0]
         p += 4
-        _ver_minor = struct.unpack_from("<i", mv, p)[0]
+        _ = struct.unpack_from("<i", mv, p)[0]
         p += 4
         if p + 4 > len(body):
             return []
@@ -591,8 +609,11 @@ class DuplicantDecoder:
                         elif beh_name in ("Accessorizer", "WearableAccessorizer"):
                             # Infer role from worn hat strings like 'hat_role_building3'
                             try:
-                                strings = self._scan_klei_strings(mv, beh_start, beh_end, max_strings=128)
+                                strings = self._scan_klei_strings(
+                                    mv, beh_start, beh_end, max_strings=128
+                                )
                                 hat_tokens = [s for s in strings if "hat_role_" in s]
+
                                 def map_hat_to_role(token: str) -> str:
                                     try:
                                         seg = token.split("hat_role_", 1)[1]

@@ -1,8 +1,6 @@
 from __future__ import annotations
-
 """
 SaveFileDataExtractor (contract v0.1)
-
 Builds a stable, section-oriented JSON document from a parsed ONI save.
 
 Public API:
@@ -97,16 +95,33 @@ class SaveFileDataExtractor:
             "cycles": int(getattr(save.header, "num_cycles", 0) or 0),
             "duplicant_count": int(getattr(save.header, "num_duplicants", 0) or 0),
             "base_name": _safe_get_game_info_value(game_info, "baseName", "") or "",
-            "cluster_id": save.header.cluster_id or _safe_get_game_info_value(game_info, "clusterId", ""),
+            "cluster_id": save.header.cluster_id
+            or _safe_get_game_info_value(game_info, "clusterId", ""),
             # Keep full `game_info` for transparency; small dict in ONI headers
             "game_info": game_info,
         }
 
         # --- duplicants ---
-        raw_minions: List[Dict[str, Any]] = entities.get("duplicants") or []  # type: ignore[assignment]
-        duplicants_list = [_map_minion_entry(m) for m in raw_minions]
+        # Prefer canonical shape when available; fallback to legacy raw list and normalize
+        canonical_list = entities.get("duplicants_canonical")
+        duplicants_src: List[Dict[str, Any]]
+        if isinstance(canonical_list, list) and all(
+            isinstance(x, dict) for x in canonical_list
+        ):
+            duplicants_src = canonical_list  # already in contract-like shape
+            # Ensure minimal normalization (e.g., missing keys)
+            duplicants_list = [_map_minion_entry(m) for m in duplicants_src]
+        else:
+            # type: ignore[assignment]
+            raw_minions: List[Dict[str, Any]] = (
+                entities.get("duplicants") or []
+            )
+            duplicants_list = [_map_minion_entry(m) for m in raw_minions]
         duplicants: Dict[str, Any] = {
-            "count": int(getattr(save.header, "num_duplicants", len(duplicants_list)) or len(duplicants_list)),
+            "count": int(
+                getattr(save.header, "num_duplicants", len(duplicants_list))
+                or len(duplicants_list)
+            ),
             "list": duplicants_list,
         }
 

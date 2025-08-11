@@ -38,8 +38,8 @@ class SaveFileDataExtractor:
         The returned structure includes minimal but actionable data for
         observer agents. For the `duplicants` section, this method augments
         header counts with a concrete `list` of duplicant entries derived
-        from the parser's entity extraction, containing identity, role, and
-        vitals. Traits are currently left empty until template parsing lands.
+        from the parser's entity extraction. If a canonical list is available
+        it is preferred; otherwise raw entries are mapped into canonical form.
         """
         result = self._parser.parse_save_file(save_file_path)
         if not result.success or result.save_game is None:
@@ -47,9 +47,48 @@ class SaveFileDataExtractor:
 
         save_game = result.save_game
         game_info = save_game.header.game_info
-        # Extract duplicant entity details (legacy list; canonical lives in parser entities for now)
+        # Prefer canonical duplicants structure if provided by parser
+        canonical = result.entities.get("duplicants_canonical")
         raw_minions = result.entities.get("duplicants") or self._parser.extract_minion_details(save_file_path)
-        duplicant_list = raw_minions or []
+
+        def to_canonical(m: Dict[str, Any]) -> Dict[str, Any]:
+            vitals: Dict[str, Any] = m.get("vitals", {}) if isinstance(m.get("vitals"), dict) else {}
+            identity = {
+                "name": m.get("name"),
+                "gender": m.get("gender"),
+                "arrival_time": int(m.get("arrival_time", 0) or 0),
+            }
+            position = {
+                "x": float(m.get("x", 0.0)),
+                "y": float(m.get("y", 0.0)),
+                "z": float(m.get("z", 0.0)),
+            }
+            return {
+                "identity": identity,
+                "role": m.get("job", "NoRole") or "NoRole",
+                "vitals": {
+                    "calories": vitals.get("calories"),
+                    "health": vitals.get("health"),
+                    "stress": vitals.get("stress"),
+                    "stamina": vitals.get("stamina"),
+                    "decor": vitals.get("decor"),
+                    "temperature": vitals.get("temperature"),
+                    "breath": vitals.get("breath"),
+                    "bladder": vitals.get("bladder"),
+                    "immune_level": vitals.get("immune_level"),
+                    "toxicity": vitals.get("toxicity"),
+                    "radiation_balance": vitals.get("radiation_balance"),
+                },
+                "aptitudes": m.get("aptitudes") or {},
+                "traits": m.get("traits", []) or [],
+                "effects": m.get("effects", []) or [],
+                "position": position,
+            }
+
+        if isinstance(canonical, list) and canonical:
+            duplicant_list = canonical
+        else:
+            duplicant_list = [to_canonical(m) for m in (raw_minions or [])]
 
         # Minimal sections derived from header until full parsing is implemented
         resources_section = {

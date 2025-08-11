@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-10T17:45:05.483836",
+  "timestamp": "2025-08-11T17:07:44.499701",
   "file_path": "test_data/clone_laboratory.sav",
   "file_size_bytes": 2394836,
   "success": true,
@@ -11,7 +11,7 @@
     "Game objects parsing not yet implemented",
     "Game data parsing not yet implemented"
   ],
-  "parse_time_seconds": 6.889600992202759,
+  "parse_time_seconds": 6.790713787078857,
   "save_summary": {
     "version": "7.36",
     "cycles": 151,

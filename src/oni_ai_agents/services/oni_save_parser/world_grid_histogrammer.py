@@ -9,7 +9,7 @@ temperatures, diseases, and radiation, and derive breathable percentage.
 
 from __future__ import annotations
 
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def compute_histograms(sim_blob: bytes, width: int, height: int) -> Dict[str, Dict[str, int]]:
@@ -64,7 +64,8 @@ def compute_structures_histogram(object_group_counts: Dict[str, int], top_n: int
 
 
 def _scan_best_float32(buf_mv, start: int, end: int, min_val: float, max_val: float) -> Optional[float]:
-    import struct, math
+    import math
+    import struct
     best = None
     p = start
     while p + 4 <= end:

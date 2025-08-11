@@ -6,14 +6,14 @@ Analyzes a real ONI save file to understand the binary format
 and test our parser implementation.
 """
 
-import struct
-import zlib
 import json
 import logging
-from pathlib import Path
+import struct
+import zlib
 from datetime import datetime
+from pathlib import Path
 
-from src.oni_ai_agents.services.oni_save_parser import OniSaveParser, BinaryReader
+from src.oni_ai_agents.services.oni_save_parser import BinaryReader, OniSaveParser
 
 
 def analyze_save_file_structure(file_path: Path):

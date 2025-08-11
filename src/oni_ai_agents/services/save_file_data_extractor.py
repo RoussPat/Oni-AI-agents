@@ -7,15 +7,15 @@ Provides section-oriented views of an ONI save file using the OniSaveParser.
 This serves as a compatibility layer for observer agents expecting section data.
 """
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
-import logging
 
 from .oni_save_parser import OniSaveParser
 from .oni_save_parser.world_grid_histogrammer import (
-    compute_histograms,
     compute_breathable_percent,
+    compute_histograms,
 )
 
 
@@ -38,8 +38,8 @@ class SaveFileDataExtractor:
         The returned structure includes minimal but actionable data for
         observer agents. For the `duplicants` section, this method augments
         header counts with a concrete `list` of duplicant entries derived
-        from the parser's entity extraction, containing identity, role, and
-        vitals. Traits are currently left empty until template parsing lands.
+        from the parser's entity extraction. If a canonical list is available
+        it is preferred; otherwise raw entries are mapped into canonical form.
         """
         result = self._parser.parse_save_file(save_file_path)
         if not result.success or result.save_game is None:
@@ -47,25 +47,25 @@ class SaveFileDataExtractor:
 
         save_game = result.save_game
         game_info = save_game.header.game_info
-        # Extract duplicant entity details (heuristic extractor for now)
+        # Prefer canonical duplicants structure if provided by parser
+        canonical = result.entities.get("duplicants_canonical")
         raw_minions = result.entities.get("duplicants") or self._parser.extract_minion_details(save_file_path)
 
-        def _map_minion(m: Dict[str, Any]) -> Dict[str, Any]:
+        def to_canonical(m: Dict[str, Any]) -> Dict[str, Any]:
             vitals: Dict[str, Any] = m.get("vitals", {}) if isinstance(m.get("vitals"), dict) else {}
-            identity: Dict[str, Any] = {
+            identity = {
                 "name": m.get("name"),
                 "gender": m.get("gender"),
-                "arrival_time": m.get("arrival_time", 0),
+                "arrival_time": int(m.get("arrival_time", 0) or 0),
             }
-            # Optional position if available
-            position: Dict[str, float] = {
+            position = {
                 "x": float(m.get("x", 0.0)),
                 "y": float(m.get("y", 0.0)),
                 "z": float(m.get("z", 0.0)),
             }
-            entry: Dict[str, Any] = {
+            return {
                 "identity": identity,
-                "role": m.get("job", "NoRole"),
+                "role": m.get("job", "NoRole") or "NoRole",
                 "vitals": {
                     "calories": vitals.get("calories"),
                     "health": vitals.get("health"),
@@ -79,14 +79,16 @@ class SaveFileDataExtractor:
                     "toxicity": vitals.get("toxicity"),
                     "radiation_balance": vitals.get("radiation_balance"),
                 },
+                "aptitudes": m.get("aptitudes") or {},
                 "traits": m.get("traits", []) or [],
                 "effects": m.get("effects", []) or [],
-                "aptitudes": m.get("aptitudes") or {},
                 "position": position,
             }
-            return entry
 
-        duplicant_list = [_map_minion(m) for m in (raw_minions or [])]
+        if isinstance(canonical, list) and canonical:
+            duplicant_list = canonical
+        else:
+            duplicant_list = [to_canonical(m) for m in (raw_minions or [])]
 
         # Minimal sections derived from header until full parsing is implemented
         resources_section = {

@@ -6,26 +6,86 @@ Falls back to embedded subsets if research files are not present.
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import List, Set
 
-
 FALLBACK_TRAIT_IDS: Set[str] = {
-    'SmallBladder','Narcolepsy','Flatulence','Anemic','MouthBreather','BingeEater','StressVomiter',
-    'UglyCrier','EarlyBird','NightOwl','FastLearner','SlowLearner','NoodleArms','StrongArm',
-    'IronGut','WeakImmuneSystem','StrongImmuneSystem','DeeperDiversLungs','Snorer','BalloonArtist',
-    'SparkleStreaker','StickerBomber','InteriorDecorator','Uncultured','Allergies','Hemophobia',
-    'Claustrophobic','SolitarySleeper','Workaholic','Aggressive','Foodie','SimpleTastes','Greasemonkey',
-    'MoleHands','Twinkletoes','SunnyDisposition','RockCrusher','BedsideManner','Archaeologist',
+    'SmallBladder',
+    'Narcolepsy',
+    'Flatulence',
+    'Anemic',
+    'MouthBreather',
+    'BingeEater',
+    'StressVomiter',
+    'UglyCrier',
+    'EarlyBird',
+    'NightOwl',
+    'FastLearner',
+    'SlowLearner',
+    'NoodleArms',
+    'StrongArm',
+    'IronGut',
+    'WeakImmuneSystem',
+    'StrongImmuneSystem',
+    'DeeperDiversLungs',
+    'Snorer',
+    'BalloonArtist',
+    'SparkleStreaker',
+    'StickerBomber',
+    'InteriorDecorator',
+    'Uncultured',
+    'Allergies',
+    'Hemophobia',
+    'Claustrophobic',
+    'SolitarySleeper',
+    'Workaholic',
+    'Aggressive',
+    'Foodie',
+    'SimpleTastes',
+    'Greasemonkey',
+    'MoleHands',
+    'Twinkletoes',
+    'SunnyDisposition',
+    'RockCrusher',
+    'BedsideManner',
+    'Archaeologist',
 }
 
 FALLBACK_EFFECT_IDS: Set[str] = {
-    'UncomfortableSleep','Sleep','NarcolepticSleep','RestfulSleep','AnewHope','Mourning','DisturbedSleep',
-    'NewCrewArrival','UnderWater','FullBladder','StressfulyEmptyingBladder','RedAlert','MentalBreak',
-    'CoolingDown','WarmingUp','Darkness','SteppedInContaminatedWater','WellFed','StaleFood',
-    'SmelledPutridOdour','Vomiting','DirtyHands','Unclean','LightWounds','ModerateWounds','SevereWounds',
-    'WasAttacked','SoreBack','WarmAir','ColdAir','Hypothermia','Hyperthermia','CenterOfAttention'
+    'UncomfortableSleep',
+    'Sleep',
+    'NarcolepticSleep',
+    'RestfulSleep',
+    'AnewHope',
+    'Mourning',
+    'DisturbedSleep',
+    'NewCrewArrival',
+    'UnderWater',
+    'FullBladder',
+    'StressfulyEmptyingBladder',
+    'RedAlert',
+    'MentalBreak',
+    'CoolingDown',
+    'WarmingUp',
+    'Darkness',
+    'SteppedInContaminatedWater',
+    'WellFed',
+    'StaleFood',
+    'SmelledPutridOdour',
+    'Vomiting',
+    'DirtyHands',
+    'Unclean',
+    'LightWounds',
+    'ModerateWounds',
+    'SevereWounds',
+    'WasAttacked',
+    'SoreBack',
+    'WarmAir',
+    'ColdAir',
+    'Hypothermia',
+    'Hyperthermia',
+    'CenterOfAttention',
 }
 
 
@@ -54,18 +114,22 @@ def _load_ids_from_ts(relative_path: str, array_name: str) -> List[str]:
 
 
 def load_known_trait_ids() -> Set[str]:
-    ids = set(_load_ids_from_ts(
-        'research/robophred-js/src/save-structure/game-objects/game-object-behavior/known-behaviors/ai-traits.ts',
-        'AI_TRAIT_IDS'
-    ))
+    ids = set(
+        _load_ids_from_ts(
+            'research/robophred-js/src/save-structure/game-objects/game-object-behavior/known-behaviors/ai-traits.ts',
+            'AI_TRAIT_IDS',
+        )
+    )
     return ids or set(FALLBACK_TRAIT_IDS)
 
 
 def load_known_effect_ids() -> Set[str]:
-    ids = set(_load_ids_from_ts(
-        'research/robophred-js/src/save-structure/game-objects/game-object-behavior/known-behaviors/ai-effects.ts',
-        'AI_EFFECT_IDS'
-    ))
+    ids = set(
+        _load_ids_from_ts(
+            'research/robophred-js/src/save-structure/game-objects/game-object-behavior/known-behaviors/ai-effects.ts',
+            'AI_EFFECT_IDS',
+        )
+    )
     return ids or set(FALLBACK_EFFECT_IDS)
 
 

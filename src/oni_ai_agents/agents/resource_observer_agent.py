@@ -5,8 +5,8 @@ Specialized agent for monitoring and analyzing resource-related game state data
 from ONI save files (food, oxygen, power, materials, storage, etc.).
 """
 
-from typing import Dict, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 from ..core.agent import Agent
 from ..core.agent_types import AgentType

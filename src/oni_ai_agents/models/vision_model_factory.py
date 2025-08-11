@@ -5,8 +5,8 @@ This factory creates and configures different AI vision models
 for image analysis in the ONI AI system.
 """
 
-from typing import Dict, Any, List
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List
 
 
 class BaseVisionModel(ABC):

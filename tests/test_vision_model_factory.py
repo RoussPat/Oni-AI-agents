@@ -5,14 +5,15 @@ This module tests the vision model factory functionality for creating
 and configuring different AI vision models.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.oni_ai_agents.models.vision_model_factory import (
-    VisionModelFactory, 
-    OpenAIVisionModel, 
-    AnthropicVisionModel, 
-    LocalVisionModel
+    AnthropicVisionModel,
+    LocalVisionModel,
+    OpenAIVisionModel,
+    VisionModelFactory,
 )
 
 

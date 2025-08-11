@@ -7,8 +7,8 @@ Based on RoboPhred's ArrayDataReader implementation.
 
 import struct
 import zlib
-from typing import List, Any, Callable, Optional
 from io import BytesIO
+from typing import Any, Callable, List, Optional
 
 
 class BinaryReader:

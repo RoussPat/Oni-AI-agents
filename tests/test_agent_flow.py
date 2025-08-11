@@ -5,10 +5,11 @@ This test creates three agents (Observing, Core, Commands) and simulates
 a complete game analysis and decision-making flow.
 """
 
-import pytest
 import asyncio
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 from unittest.mock import Mock, patch
+
+import pytest
 
 from src.oni_ai_agents.core.agent import Agent, AgentMessage
 from src.oni_ai_agents.core.agent_types import AgentType

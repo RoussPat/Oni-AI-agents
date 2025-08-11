@@ -7,8 +7,8 @@ Tests the real ONI save file parsing without dependencies that might cause issue
 
 import json
 import logging
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from src.oni_ai_agents.services.oni_save_parser import OniSaveParser
 

@@ -5,11 +5,11 @@ Model factory for creating different AI model instances.
 import logging
 from typing import Any, Dict, Optional
 
-from .base_model import BaseModel
-from .openai_model import OpenAIModel
 from .anthropic_model import AnthropicModel
+from .base_model import BaseModel
 from .local_model import LocalModel
-from .rate_limiter import RateLimiter, RateLimitConfig, RateLimitedModel, RateLimitStrategy
+from .openai_model import OpenAIModel
+from .rate_limiter import RateLimitConfig, RateLimitedModel, RateLimiter, RateLimitStrategy
 
 
 class ModelFactory:

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from src.oni_ai_agents.services.oni_save_parser import OniSaveParser
@@ -51,7 +52,17 @@ def test_version_fallback_and_warning_when_header_missing_versions(monkeypatch):
 
     monkeypatch.setattr(parser, "_parse_header", _wrapped)
 
-    result = parser.parse_save_file(save_path)
+    # In FAST_TESTS mode, run the real parse for this test only to exercise fallback
+    prev_fast = os.getenv("FAST_TESTS")
+    try:
+        if prev_fast == "1":
+            os.environ["FAST_TESTS"] = "0"
+        result = parser.parse_save_file(save_path)
+    finally:
+        if prev_fast is not None:
+            os.environ["FAST_TESTS"] = prev_fast
+        else:
+            os.environ.pop("FAST_TESTS", None)
     assert result.success
     sg = result.save_game
     assert sg is not None

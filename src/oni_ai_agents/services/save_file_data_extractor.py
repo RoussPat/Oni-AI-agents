@@ -10,7 +10,7 @@ This serves as a compatibility layer for observer agents expecting section data.
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from .oni_save_parser import OniSaveParser
 from .oni_save_parser.world_grid_histogrammer import (

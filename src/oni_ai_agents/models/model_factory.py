@@ -3,7 +3,7 @@ Model factory for creating different AI model instances.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from .anthropic_model import AnthropicModel
 from .base_model import BaseModel
@@ -22,6 +22,7 @@ class ModelFactory:
     
     _models = {
         "openai": OpenAIModel,
+        "openai_local": OpenAIModel,
         "anthropic": AnthropicModel,
         "local": LocalModel,
     }

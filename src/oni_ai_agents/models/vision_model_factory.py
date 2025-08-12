@@ -28,7 +28,6 @@ class BaseVisionModel(ABC):
         Returns:
             Generated text response
         """
-        pass
 
 
 class OpenAIVisionModel(BaseVisionModel):

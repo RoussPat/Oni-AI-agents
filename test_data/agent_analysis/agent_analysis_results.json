@@ -1,47 +1,26 @@
 {
-  "timestamp": "2025-08-11T17:16:01.532531",
-  "save_file": "test_data/clone_laboratory.sav",
+  "timestamp": "2025-08-11T19:43:14.133093",
+  "save_file": "test_data\\clone_laboratory.sav",
   "save_summary": {
     "version": "7.36",
     "cycles": 151,
-    "duplicants": 11,
-    "object_groups": 0,
-    "total_objects": 0,
-    "object_counts": {},
-    "world_data_size": 27950195,
-    "sim_data_size": 27950195
+    "duplicants": 11
   },
   "game_info": {
-    "numberOfCycles": 151,
-    "numberOfDuplicants": 11,
     "baseName": "The Clone Laboratory",
-    "isAutoSave": false,
-    "originalSaveName": "The Clone Laboratory.sav",
-    "saveMajorVersion": 7,
-    "saveMinorVersion": 36,
-    "clusterId": "expansion1::clusters/SandstoneStartCluster",
-    "worldTraits": null,
-    "sandboxEnabled": false,
-    "colonyGuid": "3669fa18-442e-4529-838c-da45d593a93d",
-    "dlcId": null,
-    "dlcIds": [
-      "EXPANSION1_ID"
-    ],
-    "buildVersion": 679336,
-    "headerVersion": 1,
-    "isCompressed": true
+    "clusterId": "expansion1::clusters/SandstoneStartCluster"
   },
   "agent_analyses": {
     "resource": {
       "agent_id": "resource_test",
       "section": "resources",
       "error": "'<' not supported between instances of 'NoneType' and 'int'",
-      "timestamp": "2025-08-11T17:15:45.374760"
+      "timestamp": "2025-08-11T19:42:55.465950"
     },
     "duplicant": {
       "agent_id": "duplicant_test",
       "section": "duplicants",
-      "timestamp": "2025-08-11T17:15:52.800019",
+      "timestamp": "2025-08-11T19:43:04.898616",
       "duplicant_data": {
         "count": 11,
         "list": [
@@ -388,7 +367,7 @@
     "threat": {
       "agent_id": "threat_test",
       "section": "threats",
-      "timestamp": "2025-08-11T17:16:01.531126",
+      "timestamp": "2025-08-11T19:43:14.131094",
       "threat_data": {
         "diseases": {},
         "temperature_zones": {},
@@ -412,7 +391,7 @@
     },
     "image": {
       "summary": "Local Vision Analysis: Analyze this Oxygen Not Included base screenshot a...",
-      "timestamp": 1754925361.5324738,
+      "timestamp": 1754934194.1320944,
       "image_hash": "65bf48dad0668c1c0f19d1321ee8efb8191d0b89faf59fe0a8bf3253a6f486be",
       "analysis_type": "base_overview"
     }

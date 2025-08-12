@@ -2,7 +2,6 @@
 Local model implementation for testing and development.
 """
 
-import json
 import random
 from typing import Any, Dict, List, Optional
 

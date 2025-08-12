@@ -6,7 +6,6 @@ Checks that the duplicants section exposes expected keys and types.
 """
 
 from pathlib import Path
-from typing import Dict
 
 from src.oni_ai_agents.services.save_file_data_extractor import SaveFileDataExtractor
 

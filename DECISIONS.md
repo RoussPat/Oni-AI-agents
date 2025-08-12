@@ -217,6 +217,31 @@ Each decision follows this format:
 **Decision**: Use concise worker briefs (prompts) to run parallel tasks confined to save-file parsing; track outcomes here.  
 **Consequences**: Faster parallel progress, clear acceptance criteria, and consistent adherence to repo guidelines.
 
+## 🧪 OpenAI Local Runtime Testability
+**Date**: 2025-08-11  
+**Decision**: Add offline tests with a fake `AsyncOpenAI` to cover `responses` and `chat.completions` paths; allow local `base_url` without API key and return stub when unavailable.  
+**Consequences**: Tests run with no network; local OpenAI-compatible servers supported via config; wiring verified.
+
+## 🧪 Local OpenAI-Compatible GPT-OSS Runtime
+**Date**: 2025-08-11  
+**Decision**: Add example and docs for running a local OpenAI-compatible GPT-OSS server; adopt `OPENAI_BASE_URL`/`OPENAI_MODEL` envs.  
+**Consequences**: Enables offline/dev testing with OSS models; CI-safe example that exits cleanly when server is absent.
+
+## 🧩 Local GPT-OSS via Ollama
+**Date**: 2025-08-11  
+**Decision**: Document WSL-based Ollama setup; recommend chat-completions fallback via `OPENAI_FORCE_CHAT=1`.  
+**Consequences**: Works with Ollama’s OpenAI-compatible endpoint; predictable behavior across compat servers.
+
+## 🔌 OpenAI Local Runtime Support
+**Date**: 2025-08-11  
+**Decision**: `OpenAIModel` reads `base_url` from config or env; if set, instantiate real `AsyncOpenAI` with `api_key` or `"EMPTY"`. Add `openai_local` alias in `ModelFactory`.  
+**Consequences**: Agents can use local OpenAI-compatible servers without API keys; Responses and Chat Completions work.
+
+## 🧪 GPT-OSS Local Runtime (Docker)
+**Date**: 2025-08-11  
+**Decision**: Add vLLM-based compose `runtime/docker-compose.gpt-oss.yml`, Windows scripts to download models and run locally; `.env` vars `OPENAI_BASE_URL`/`OPENAI_MODEL`.  
+**Consequences**: Reproducible local GPT-OSS via OpenAI API at `http://localhost:8000/v1`; no Python code changes needed to start/stop.
+
 ## ♻️ Save Parser Modularization Facade v0.1
 **Date**: 2025-08-10
 **Decision**: Extract cohesive responsibilities from `save_parser.py` into small modules: `header_reader.py`, `compressed_blocks.py`, `ksav_index.py`, `duplicant_decoder.py`, `metadata_builder.py`; keep `OniSaveParser` as a thin orchestrator.

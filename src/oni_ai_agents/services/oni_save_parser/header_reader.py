@@ -6,7 +6,7 @@ Parses the JSON header region and extracts key metadata and version info.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from .binary_reader import BinaryReader
 from .data_structures import SaveGameHeader

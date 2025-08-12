@@ -7,7 +7,7 @@ and ensure fair usage across multiple agents.
 
 import asyncio
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional
 

@@ -20,7 +20,7 @@ class CompressedBlocksScanner:
         mv = memoryview(data)
         if len(data) < 12:
             return 0, False
-        _build = struct.unpack_from("<I", mv, p)[0]
+        struct.unpack_from("<I", mv, p)[0]
         p += 4
         header_size = struct.unpack_from("<I", mv, p)[0]
         p += 4

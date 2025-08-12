@@ -56,6 +56,39 @@ python examples/example_usage.py
 python examples/example_hybrid_workflow.py
 ```
 
+### Local GPT-OSS (OpenAI-compatible) Quick Start (Windows)
+
+Set up a local OpenAI-compatible server and run the example agent against it.
+
+1. `./scripts/download_gpt_oss.ps1 -ModelRepo <hf_repo>`
+2. `./scripts/run_gpt_oss_local.ps1`
+3. `setx OPENAI_BASE_URL http://localhost:8000/v1`
+4. `setx OPENAI_MODEL <model_name>`
+5. Reopen your terminal (to load env vars), then run: `python examples\example_local_gpt_oss.py`
+
+Notes:
+- The example exits cleanly if the server is not reachable (won't break CI).
+- For full functionality, install model deps: `pip install -r requirements/models.txt`.
+
+### Local GPT-OSS via Ollama (WSL)
+
+Run an OpenAI-compatible server using Ollama inside WSL and call it from Windows.
+
+1) Start server on port 11435 (WSL):
+   - `./scripts/ollama_start_wsl.ps1`
+2) Pull model (WSL):
+   - `./scripts/ollama_pull_gpt_oss.ps1 -Model gpt-oss:20b`
+3) Set env and run example (Windows PowerShell):
+   - `set OPENAI_BASE_URL=http://127.0.0.1:11435/v1`
+   - `set OPENAI_MODEL=gpt-oss:20b`
+   - `set OPENAI_FORCE_CHAT=1`  (recommended for Ollama)
+   - `set PYTHONPATH=.`
+   - `python examples\example_local_gpt_oss.py`
+
+Notes:
+- First tokens can be slow on initial run (model load/compile).
+- On consumer GPUs, use low-VRAM modes as needed per the model’s docs.
+
 ### Hybrid Workflow Usage
 
 The system uses a **pause-save-analyze-act** approach:

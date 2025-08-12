@@ -77,7 +77,6 @@ class OniSaveParser:
         identity: Dict[str, Any] = {}
         q = beh_start
         found_name = False
-        found_gender = False
         # Parse as a sequence of key-value entries: [keyStr][len][payload]
         while q < beh_end:
             key, q2 = self._read_klei_string(mv, q, beh_end)
@@ -103,7 +102,6 @@ class OniSaveParser:
                                 found_name = True
                             elif key == "gender" and s in ("MALE", "FEMALE", "NB"):
                                 identity["gender"] = s
-                                found_gender = True
                 except Exception:
                     pass
             elif key == "arrivalTime":
@@ -776,9 +774,9 @@ class OniSaveParser:
         # Version major/minor
         if p + 8 > len(body):
             return []
-        _ver_major = struct.unpack_from("<i", mv, p)[0]
+        struct.unpack_from("<i", mv, p)[0]
         p += 4
-        _ver_minor = struct.unpack_from("<i", mv, p)[0]
+        struct.unpack_from("<i", mv, p)[0]
         p += 4
         # Group count
         if p + 4 > len(body):
@@ -1261,9 +1259,9 @@ class OniSaveParser:
         p = ksav + 4
         if p + 8 > len(body):
             return positions_by_group
-        _ver_major = struct.unpack_from("<i", mv, p)[0]
+        struct.unpack_from("<i", mv, p)[0]
         p += 4
-        _ver_minor = struct.unpack_from("<i", mv, p)[0]
+        struct.unpack_from("<i", mv, p)[0]
         p += 4
         if p + 4 > len(body):
             return positions_by_group
@@ -1536,9 +1534,9 @@ class OniSaveParser:
         p = ksav + 4
         if p + 12 > len(body):
             return None
-        _maj = struct.unpack_from("<i", mv, p)[0]
+        struct.unpack_from("<i", mv, p)[0]
         p += 4
-        _min = struct.unpack_from("<i", mv, p)[0]
+        struct.unpack_from("<i", mv, p)[0]
         p += 4
         try:
             group_count = struct.unpack_from("<i", mv, p)[0]
@@ -1795,7 +1793,6 @@ class OniSaveParser:
         `num_duplicants`, and DLC/mod flags when present. Also updates
         `self.last_game_info` for downstream heuristics.
         """
-        import json
 
         header = SaveGameHeader()
         try:
@@ -1831,7 +1828,7 @@ class OniSaveParser:
             # Restore stream position for subsequent sections
             reader.seek(start_pos)
 
-            mv = memoryview(blob)
+            memoryview(blob)
             names: List[str] = []
             # Collect plausible ASCII names like MinionIdentity, MinionResume, MinionModifiers
             for key in (

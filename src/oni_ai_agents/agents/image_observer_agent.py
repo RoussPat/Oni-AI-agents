@@ -5,15 +5,13 @@ This agent takes PNG images as input and uses AI vision models to generate
 text summaries of the base state for the core agent.
 """
 
-import asyncio
 import base64
 import hashlib
 import io
-import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 from PIL import Image
 

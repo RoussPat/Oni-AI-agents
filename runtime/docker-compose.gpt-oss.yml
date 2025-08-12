@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  gpt-oss:
+    image: vllm/vllm-openai:latest
+    container_name: gpt-oss
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    # Mount local models for caching or serving a local model path
+    volumes:
+      - ../models:/models
+    environment:
+      # Speeds up HF downloads if extension is available
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    command: >
+      --model ${MODEL_NAME_OR_PATH:-/models/gpt-oss}
+      --host 0.0.0.0
+      --port 8000
+      --download-dir /models
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8000/v1/models > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+    # GPU users: uncomment one of the blocks below to enable CUDA
+    #
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: ["gpu"]
+    #
+    # or for older Compose/Engine setups:
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+
+

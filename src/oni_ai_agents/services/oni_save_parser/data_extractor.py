@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 SaveFileDataExtractor (contract v0.1)
 Builds a stable, section-oriented JSON document from a parsed ONI save.

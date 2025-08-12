@@ -6,7 +6,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from .agent_types import AgentType
@@ -133,22 +133,18 @@ class Agent(ABC):
         Returns:
             Processed output data
         """
-        pass
     
     @abstractmethod
     async def _on_start(self) -> None:
         """Called when the agent starts."""
-        pass
     
     @abstractmethod
     async def _on_stop(self) -> None:
         """Called when the agent stops."""
-        pass
     
     @abstractmethod
     async def _process_message(self, message: AgentMessage) -> None:
         """Process a received message."""
-        pass
     
     def get_status(self) -> Dict[str, Any]:
         """Get the current status of the agent."""

@@ -26,9 +26,9 @@ class KSAVGroupCounter:
         if p + 12 > len(body):
             return counts
         try:
-            _major = struct.unpack_from("<i", mv, p)[0]
+            struct.unpack_from("<i", mv, p)[0]
             p += 4
-            _minor = struct.unpack_from("<i", mv, p)[0]
+            struct.unpack_from("<i", mv, p)[0]
             p += 4
             group_count = struct.unpack_from("<i", mv, p)[0]
             p += 4
@@ -73,9 +73,9 @@ class KSAVGroupCounter:
         if pos == -1 or pos + 12 > len(body):
             return summary
         p = pos + 4
-        _maj = struct.unpack_from("<i", mv, p)[0]
+        struct.unpack_from("<i", mv, p)[0]
         p += 4
-        _min = struct.unpack_from("<i", mv, p)[0]
+        struct.unpack_from("<i", mv, p)[0]
         p += 4
         group_count = struct.unpack_from("<i", mv, p)[0]
         p += 4

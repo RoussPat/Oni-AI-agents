@@ -7,17 +7,9 @@ image processing, AI model integration, and message handling.
 
 import asyncio
 import base64
-import hashlib
-import io
-import logging
-import os
-import tempfile
-from pathlib import Path
-from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from PIL import Image
 
 from src.oni_ai_agents.core.agent import AgentMessage
 from src.oni_ai_agents.core.agent_types import AgentType
@@ -256,7 +248,7 @@ class TestImageObserverAgent:
                 "analysis_type": analysis_type
             }
             
-            result = await image_observer_agent.process_input(input_data)
+            await image_observer_agent.process_input(input_data)
             
             # Verify AI model was called with appropriate prompt
             call_args = mock_ai_model.generate_with_vision.call_args

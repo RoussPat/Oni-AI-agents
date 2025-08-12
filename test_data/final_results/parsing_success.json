@@ -1,14 +1,14 @@
 {
-  "timestamp": "2025-08-11T17:15:30.367879",
+  "timestamp": "2025-08-11T19:42:46.539502",
   "test_type": "simple_save_parsing",
   "success": true,
   "file_info": {
-    "path": "test_data/clone_laboratory.sav",
+    "path": "test_data\\clone_laboratory.sav",
     "size_bytes": 2394836,
     "size_mb": 2.28
   },
   "parsing_results": {
-    "parse_time_seconds": 8.16802453994751,
+    "parse_time_seconds": 8.972403287887573,
     "warnings_count": 5,
     "warnings": [
       "World data preserved as binary (not parsed)",

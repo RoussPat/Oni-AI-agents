@@ -9,7 +9,7 @@ temperatures, diseases, and radiation, and derive breathable percentage.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 
 def compute_histograms(sim_blob: bytes, width: int, height: int) -> Dict[str, Dict[str, int]]:

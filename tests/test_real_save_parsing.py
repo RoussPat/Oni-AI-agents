@@ -8,7 +8,6 @@ and test our parser implementation.
 
 import json
 import logging
-import struct
 import zlib
 from datetime import datetime
 from pathlib import Path

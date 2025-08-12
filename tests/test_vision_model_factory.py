@@ -5,7 +5,6 @@ This module tests the vision model factory functionality for creating
 and configuring different AI vision models.
 """
 
-from unittest.mock import MagicMock, patch
 
 import pytest
 

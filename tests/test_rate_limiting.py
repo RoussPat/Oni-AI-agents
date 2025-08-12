@@ -3,7 +3,6 @@ Tests for rate limiting functionality.
 """
 
 import asyncio
-import time
 
 import pytest
 

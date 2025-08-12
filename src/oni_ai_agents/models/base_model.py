@@ -2,10 +2,9 @@
 Base model interface for AI model connectivity.
 """
 
-import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 
 class BaseModel(ABC):
@@ -35,7 +34,6 @@ class BaseModel(ABC):
         Returns:
             True if initialization successful, False otherwise
         """
-        pass
     
     @abstractmethod
     async def generate_response(
@@ -59,7 +57,6 @@ class BaseModel(ABC):
         Returns:
             Generated response text
         """
-        pass
     
     @abstractmethod
     async def generate_structured_response(
@@ -83,7 +80,6 @@ class BaseModel(ABC):
         Returns:
             Structured response as dictionary
         """
-        pass
     
     @abstractmethod
     async def get_embeddings(self, texts: List[str]) -> List[List[float]]:
@@ -96,7 +92,6 @@ class BaseModel(ABC):
         Returns:
             List of embedding vectors
         """
-        pass
     
     def get_model_info(self) -> Dict[str, Any]:
         """

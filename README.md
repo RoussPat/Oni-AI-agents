@@ -89,6 +89,28 @@ Notes:
 - First tokens can be slow on initial run (model load/compile).
 - On consumer GPUs, use low-VRAM modes as needed per the model’s docs.
 
+### E2E with local GPT-OSS (Ollama)
+
+Run the end-to-end tests against your local OpenAI-compatible endpoint.
+
+Prereqs:
+- Start Ollama in WSL on 11435 and pull a model (see section above).
+
+Env (Windows PowerShell):
+```
+set OPENAI_BASE_URL=http://127.0.0.1:11435/v1
+set OPENAI_MODEL=gpt-oss:20b
+set OPENAI_FORCE_CHAT=1
+```
+
+Run:
+- Windows: `./Oni-AI-agents/scripts/run_e2e_local.ps1`
+- WSL/Linux/mac: `wsl -e bash ./Oni-AI-agents/scripts/run_e2e_local.sh`
+
+Behavior:
+- Scripts exit non-zero if the endpoint is unreachable.
+- Otherwise they run tests and print a summary.
+
 ### Hybrid Workflow Usage
 
 The system uses a **pause-save-analyze-act** approach:

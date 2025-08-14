@@ -1,5 +1,6 @@
 from types import ModuleType, SimpleNamespace
 from typing import Optional
+import asyncio
 
 import pytest
 
@@ -18,8 +19,9 @@ def _make_fake_openai_module(
     """
 
     class _FakeResponses:
-        def __init__(self, *, raise_error: bool = False):
+        def __init__(self, *, raise_error: bool = False, sleep: float = 0.0):
             self._raise_error = raise_error
+            self._sleep = sleep
 
         async def create(
             self,
@@ -30,6 +32,8 @@ def _make_fake_openai_module(
             max_output_tokens: Optional[int] = None,
             **kwargs,
         ):
+            if self._sleep:
+                await asyncio.sleep(self._sleep)
             if self._raise_error:
                 raise RuntimeError("404: not found")
             # Shape expected by OpenAIModel.generate_response (responses API)
@@ -53,15 +57,20 @@ def _make_fake_openai_module(
             return SimpleNamespace(choices=[choice])
 
     class _FakeClient:
-        def __init__(self, *, api_key: Optional[str] = None, base_url: Optional[str] = None, responses_raise: bool = False):
+        def __init__(self, *, api_key: Optional[str] = None, base_url: Optional[str] = None, responses_raise: bool = False, responses_sleep: float = 0.0):
             if provide_responses:
-                self.responses = _FakeResponses(raise_error=responses_raise)
+                self.responses = _FakeResponses(raise_error=responses_raise, sleep=responses_sleep)
             if provide_chat:
                 self.chat = SimpleNamespace(completions=_FakeCompletions())
 
     class _FakeAsyncOpenAI:
-        def __init__(self, *, api_key: Optional[str] = None, base_url: Optional[str] = None, responses_raise: bool = False):
-            self._client = _FakeClient(api_key=api_key, base_url=base_url, responses_raise=responses_raise)
+        def __init__(self, *, api_key: Optional[str] = None, base_url: Optional[str] = None, responses_raise: bool = False, responses_sleep: float = 0.0):
+            self._client = _FakeClient(
+                api_key=api_key,
+                base_url=base_url,
+                responses_raise=responses_raise,
+                responses_sleep=responses_sleep,
+            )
 
         # OpenAIModel expects to use the instance directly, not a builder.
         def __getattr__(self, name):
@@ -98,6 +107,15 @@ async def test_openai_local_chat_completions_api(monkeypatch):
     # Arrange: fake openai with Chat Completions API only
     expected_text = "hello from chat"
     fake_openai = _make_fake_openai_module(provide_responses=False, provide_chat=True, text=expected_text)
+    monkeypatch.setitem(__import__("sys").modules, "openai", fake_openai)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+
+    model = OpenAIModel({"base_url": "http://localhost:8000/v1", "model": "gpt-oss"})
+    out = await model.generate_response("ping", temperature=0.1, max_tokens=16)
+    client = await model._get_client()
+    assert hasattr(client, "chat") and not hasattr(client, "responses")
+    assert out == expected_text
 
 
 @pytest.mark.asyncio
@@ -135,20 +153,31 @@ async def test_force_chat_skips_responses(monkeypatch):
     model = OpenAIModel({"base_url": "http://localhost:8000/v1", "model": "gpt-oss", "force_chat": True})
     out = await model.generate_response("ping")
     assert out == expected_text
+
+
+@pytest.mark.asyncio
+async def test_timeout_wrapper_on_responses(monkeypatch):
+    # Arrange: responses path sleeps longer than timeout, ensure surfaced error string not hang
+    fake_text = "should not appear"
+    fake_openai = _make_fake_openai_module(provide_responses=True, provide_chat=False, text=fake_text)
+
+    # Inject a constructor that adds a sleep to responses
+    def _factory(**kwargs):
+        return fake_openai.AsyncOpenAI(**{**kwargs, "responses_sleep": 1.5})
+
     monkeypatch.setitem(__import__("sys").modules, "openai", fake_openai)
-    # Ensure no real API key is picked up
+    openai_mod = __import__("openai")
+    openai_mod.AsyncOpenAI = _factory  # type: ignore[assignment]
+
+    # Set a short timeout via config and env isolation
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    model = OpenAIModel({"base_url": "http://localhost:8000/v1", "model": "gpt-oss", "request_timeout": 0.25})
 
-    model = OpenAIModel({"base_url": "http://localhost:8000/v1", "model": "gpt-oss"})
-
-    # Act
-    out = await model.generate_response("ping", temperature=0.1, max_tokens=16)
-
-    # Assert
-    client = await model._get_client()
-    assert hasattr(client, "chat") and not hasattr(client, "responses")
-    assert out == expected_text
+    out = await model.generate_response("ping")
+    assert isinstance(out, str)
+    # We expect a timeout error to surface through fallback or direct error string
+    assert "timed out" in out.lower() or out.startswith("Error generating response:")
 
 
 @pytest.mark.skipif(

@@ -293,7 +293,7 @@ class GameCommandsAgent(Agent):
 
 
 @pytest.mark.asyncio
-async def test_complete_agent_flow():
+async def test_complete_agent_flow(model_provider_and_config):
     """
     Test the complete flow: Observing -> Core -> Commands.
     
@@ -305,22 +305,23 @@ async def test_complete_agent_flow():
     """
     
     # Create the three agents
+    provider, config = model_provider_and_config
     resource_agent = ResourceObservingAgent(
         agent_id="resource_observer",
-        model_provider="local",
-        model_config={"delay": 0.05}
+        model_provider=provider,
+        model_config=dict({"delay": 0.05}, **config) if provider == "local" else dict(config),
     )
     
     core_agent = ColonyCoreAgent(
         agent_id="colony_core",
-        model_provider="local", 
-        model_config={"delay": 0.05}
+        model_provider=provider,
+        model_config=dict({"delay": 0.05}, **config) if provider == "local" else dict(config),
     )
     
     commands_agent = GameCommandsAgent(
         agent_id="commands_agent",
-        model_provider="local",
-        model_config={"delay": 0.05}
+        model_provider=provider,
+        model_config=dict({"delay": 0.05}, **config) if provider == "local" else dict(config),
     )
     
     # Connect the agents in the flow: Observer -> Core -> Commands

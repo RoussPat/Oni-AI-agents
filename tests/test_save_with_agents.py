@@ -18,11 +18,12 @@ from src.oni_ai_agents.agents.duplicant_observer_agent import DuplicantObserverA
 from src.oni_ai_agents.agents.image_observer_agent import ImageObserverAgent
 from src.oni_ai_agents.agents.resource_observer_agent import ResourceObserverAgent
 from src.oni_ai_agents.agents.threat_observer_agent import ThreatObserverAgent
+from src.oni_ai_agents.models.model_factory import ModelFactory
 from src.oni_ai_agents.services.oni_save_parser import OniSaveParser
 
 
 @pytest.mark.asyncio
-async def test_save_with_agents():
+async def test_save_with_agents(model_provider_and_config):
     """Test the parsed save file with all observer agents."""
     
     print("🤖 Testing Real Save File with Observer Agents")
@@ -91,13 +92,13 @@ async def test_save_with_agents():
         "environment_stability": "unknown"
     }
     
-    # Create observer agents
-    # Use minimal artificial delay to speed up tests
+    # Create observer agents using parametrized model provider/config
+    provider, config = model_provider_and_config
     agents = {
-        "resource": ResourceObserverAgent("resource_test", "local", {"delay": 0.0}),
-        "duplicant": DuplicantObserverAgent("duplicant_test", "local", {"delay": 0.0}),
-        "threat": ThreatObserverAgent("threat_test", "local", {"delay": 0.0}),
-        "image": ImageObserverAgent("image_test", "local", {"delay": 0.0}),
+        "resource": ResourceObserverAgent("resource_test", provider, dict(config)),
+        "duplicant": DuplicantObserverAgent("duplicant_test", provider, dict(config)),
+        "threat": ThreatObserverAgent("threat_test", provider, dict(config)),
+        "image": ImageObserverAgent("image_test", provider, dict(config)),
     }
     
     # Start all agents

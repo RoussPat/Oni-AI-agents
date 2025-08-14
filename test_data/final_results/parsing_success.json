@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-11T19:42:46.539502",
+  "timestamp": "2025-08-13T19:23:24.167934",
   "test_type": "simple_save_parsing",
   "success": true,
   "file_info": {
@@ -8,7 +8,7 @@
     "size_mb": 2.28
   },
   "parsing_results": {
-    "parse_time_seconds": 8.972403287887573,
+    "parse_time_seconds": 9.777232646942139,
     "warnings_count": 5,
     "warnings": [
       "World data preserved as binary (not parsed)",
